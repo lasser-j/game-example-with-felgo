@@ -20,11 +20,6 @@ GameWindow {
     screenWidth: 960
     screenHeight: 640
 
-    Scene {
-        id: scene
-
-        // the "logical size" - the scene content is auto-scaled to match the GameWindow size
-        width: 480
-        height: 320
+    GameScene {
     }
 }
