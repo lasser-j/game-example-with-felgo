@@ -3,37 +3,32 @@ import QtQuick 2.0
 
 EntityBase {
 
-    id: bullet
-    entityType: "bullet"
+    id: enemy
+    entityType: "enemy"
 
-    // bullet size
-    width: 10
-    height: 10
+    // enemy size
+    width: 40
+    height: 40
 
-    // direction and speed for bullet
+    // direction and speed for enemy
     property real velocityX: 0
     property real velocityY: 0
-    property real speed: 50
+    property real speed: 25
 
-    // bullet image
+    // enemy image
     Image {
         anchors.fill: parent
-        source: "../../assets/img/bullet.png"
+        source: "../../assets/img/enemy.png"
         fillMode: Image.PreserveAspectFit
     }
 
-    // bullet movement from player position towards mouse position
+    // enemy movement towards player position
     MovementAnimation {
       id: movementX
       target: parent
       property: "x"
       velocity: velocityX * speed
       running: true
-      minPropertyValue: -parent.width
-      maxPropertyValue: gameScene.gameWindowAnchorItem.width
-      onLimitReached: {
-          removeEntity();
-      }
     }
 
     MovementAnimation {
@@ -42,16 +37,12 @@ EntityBase {
       property: "y"
       velocity: velocityY * speed
       running: true
-      minPropertyValue: -parent.height
-      maxPropertyValue: gameScene.gameWindowAnchorItem.height
-      onLimitReached: {
-          removeEntity();
-      }
     }
 
     CircleCollider {
       radius: parent.height/2
       anchors.centerIn: parent
+
       bodyType: Body.Dynamic
     }
 
