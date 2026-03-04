@@ -39,11 +39,14 @@ EntityBase {
       running: true
     }
 
+    // collider to check if enemy reached the player or was hit by a bullet
     CircleCollider {
-      radius: parent.height/2
-      anchors.centerIn: parent
+        radius: parent.height/2 // radius for collision dedection
+        anchors.centerIn: parent // position centered at bullet
+        collisionTestingOnlyMode: true // enemy will not be affected by gravity or other applied physics forces
 
-      bodyType: Body.Dynamic
+        // enemy should collide with player and bullet
+        categories:   Circle.Category2
+        collidesWith: Circle.Category1 | Circle.Category3
     }
-
 }

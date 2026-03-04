@@ -6,6 +6,8 @@ import "entities"
 Scene {
     id: gameScene
 
+    PhysicsWorld { } // no need to set gravity, the collider is not physics-based
+
     // background image
     Image {
         anchors.fill: gameWindowAnchorItem
@@ -46,7 +48,7 @@ Scene {
 
     // spwaner for enemies
     Timer {
-        interval: 1000;
+        interval: 500;
         running: true;
         repeat: true
 

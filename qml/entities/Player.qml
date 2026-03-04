@@ -17,11 +17,19 @@ EntityBase {
         fillMode: Image.PreserveAspectFit
     }
 
+    // collider to check if enemy hits the player
     CircleCollider {
-      radius: parent.height/2
-      anchors.centerIn: parent
+      radius: parent.height/2 // radius for collision dedection
+      anchors.centerIn: parent // position centered at player
+      collisionTestingOnlyMode: true // player will not be affected by gravity or other applied physics forces
 
-      bodyType: Body.Dynamic
+      // player should only collide with enemy
+      categories:   Circle.Category1
+      collidesWith: Circle.Category2
+
+      // collisision between player and enemy
+      fixture.onBeginContact: (other) => {
+        other.getBody().target.removeEntity();
+      }
     }
-
 }

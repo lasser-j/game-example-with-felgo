@@ -49,10 +49,21 @@ EntityBase {
       }
     }
 
+    // collider to check if bullet hits an enemy
     CircleCollider {
-      radius: parent.height/2
-      anchors.centerIn: parent
-      bodyType: Body.Dynamic
-    }
+      radius: parent.height/2 // radius for collision dedection
+      anchors.centerIn: parent // position centered at bullet
+      collisionTestingOnlyMode: true // bullet will not be affected by gravity or other applied physics forces
 
+      // bullet should only collide with enemy
+      categories:   Circle.Category3
+      collidesWith: Circle.Category2
+
+      // collisision between bullet and enemy
+      fixture.onBeginContact: (other) => {
+          // remove hit enemy and shot bullet
+          other.getBody().target.removeEntity();
+          removeEntity();
+      }
+    }
 }
