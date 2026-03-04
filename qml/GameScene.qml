@@ -8,6 +8,8 @@ Scene {
     id: gameScene
 
     property bool gameRunning: false // pause the game until player clicks
+    property int baseEnemySpawnInterval: 500
+    property real score: 0 // score dependent on how many enemies are shot
 
     PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 
@@ -31,9 +33,22 @@ Scene {
       entityContainer: gameScene
     }
 
-    // game over text
+    // score text
+    OverlayText {
+        id: scoreText
+        anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
+        y: 10
+        secondaryText: "score: " + score
+    }
+
+    // game over or restart text
     OverlayText {
         id: overlayText
+        anchors.centerIn: gameWindowAnchorItem
+        visible: !gameRunning
+
+        primaryText: "pause"
+        secondaryText: "click to start"
     }
 
     // trigger bullet shots when mouse was clicked
@@ -61,7 +76,7 @@ Scene {
 
     // spwaner for enemies
     Timer {
-        interval: 500;
+        interval: baseEnemySpawnInterval;
         running: gameRunning;
         repeat: true
 
@@ -89,6 +104,10 @@ Scene {
                                                                  );
 
             entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties);
+
+            // calculate new spawn frequency (each 20 points enemies will spawn faster)
+            var difficulty = Math.floor(score / 20)
+            interval = Math.max(200, baseEnemySpawnInterval - difficulty * 50)
         }
     }
 
@@ -121,6 +140,8 @@ Scene {
     function resetGame() {
         // delete all enemies and bullets
         entityManager.removeEntitiesByFilter(["enemy","bullet"]);
+
+        score = 0;// reset score
 
         // rename overlay text for next game over
         overlayText.primaryText = "GAME OVER";

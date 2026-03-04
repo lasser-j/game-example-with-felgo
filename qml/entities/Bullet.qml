@@ -62,6 +62,8 @@ EntityBase {
 
       // collisision between bullet and enemy
       fixture.onBeginContact: (other) => {
+          // increase score
+          gameScene.score++;
           // remove hit enemy and shot bullet
           other.getBody().target.removeEntity();
           removeEntity();
