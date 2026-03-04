@@ -2,9 +2,12 @@ import Felgo 4.0
 import QtQuick 2.0
 
 import "entities"
+import "items"
 
 Scene {
     id: gameScene
+
+    property bool gameRunning: false // pause the game until player clicks
 
     PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 
@@ -28,10 +31,16 @@ Scene {
       entityContainer: gameScene
     }
 
+    // game over text
+    OverlayText {
+        id: overlayText
+    }
+
     // trigger bullet shots when mouse was clicked
     MouseArea {
         anchors.fill: gameWindowAnchorItem
         onPressed: (mouse)=> {
+            if(gameRunning){
             // calculate parameters to move the bullet from the middle of the player towards to the mouse position
             var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                  player.y + player.height/2, // y
@@ -43,13 +52,17 @@ Scene {
             movementProperties.y += 22*movementProperties.velocityY - 5;
 
             entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties);
+            }
+            else {
+                resetGame();
+            }
         }
     }
 
     // spwaner for enemies
     Timer {
         interval: 500;
-        running: true;
+        running: gameRunning;
         repeat: true
 
         onTriggered: {
@@ -98,5 +111,22 @@ Scene {
         }
 
         return newEntityProperties;
+    }
+
+    function gameOver() {
+        // freeze the game and stop movement
+        gameRunning = false
+    }
+
+    function resetGame() {
+        // delete all enemies and bullets
+        entityManager.removeEntitiesByFilter(["enemy","bullet"]);
+
+        // rename overlay text for next game over
+        overlayText.primaryText = "GAME OVER";
+        overlayText.secondaryText = "click to restart";
+
+        // (re)start game
+        gameRunning = true
     }
 }

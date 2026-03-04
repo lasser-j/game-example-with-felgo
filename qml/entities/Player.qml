@@ -2,7 +2,6 @@ import Felgo 4.0
 import QtQuick 2.0
 
 EntityBase {
-
     id: player
     entityType: "player"
 
@@ -29,7 +28,7 @@ EntityBase {
 
       // collisision between player and enemy
       fixture.onBeginContact: (other) => {
-        other.getBody().target.removeEntity();
+        gameScene.gameOver();
       }
     }
 }

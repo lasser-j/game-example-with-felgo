@@ -2,7 +2,6 @@ import Felgo 4.0
 import QtQuick 2.0
 
 EntityBase {
-
     id: bullet
     entityType: "bullet"
 
@@ -28,9 +27,10 @@ EntityBase {
       target: parent
       property: "x"
       velocity: velocityX * speed
-      running: true
       minPropertyValue: -parent.width
       maxPropertyValue: gameScene.gameWindowAnchorItem.width
+      running: gameScene.gameRunning
+
       onLimitReached: {
           removeEntity();
       }
@@ -41,9 +41,10 @@ EntityBase {
       target: parent
       property: "y"
       velocity: velocityY * speed
-      running: true
       minPropertyValue: -parent.height
       maxPropertyValue: gameScene.gameWindowAnchorItem.height
+      running: gameScene.gameRunning
+
       onLimitReached: {
           removeEntity();
       }

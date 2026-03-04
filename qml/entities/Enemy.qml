@@ -2,7 +2,6 @@ import Felgo 4.0
 import QtQuick 2.0
 
 EntityBase {
-
     id: enemy
     entityType: "enemy"
 
@@ -28,7 +27,7 @@ EntityBase {
       target: parent
       property: "x"
       velocity: velocityX * speed
-      running: true
+      running: gameScene.gameRunning
     }
 
     MovementAnimation {
@@ -36,7 +35,7 @@ EntityBase {
       target: parent
       property: "y"
       velocity: velocityY * speed
-      running: true
+      running: gameScene.gameRunning
     }
 
     // collider to check if enemy reached the player or was hit by a bullet
