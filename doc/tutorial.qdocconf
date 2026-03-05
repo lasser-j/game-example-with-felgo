@@ -1,0 +1,11 @@
+project = FelgoGameTutorial
+description = Creating a Simple Game with Felgo
+sourcedirs = .
+imagedirs = ./images
+
+outputdir = ./html
+outputformats = HTML
+
+HTML.stylesheets = style.css
+HTML.headerstyles = "<link rel=\"stylesheet\" type=\"text/css\" href=\"style/style.css\" />"
+extraimages.HTML = style.css

@@ -1,0 +1,40 @@
+/*!
+	\page How-to-build-a-simple-game-with-Felgo
+	\title How to build a simple game with Felgo
+	
+	Welcome to the step-by-step guide on creating a cross-platform game using \l {https://felgo.com} {Felgo}. 
+	In this tutorial, we will break down the example game \l {https://github.com/lasser-j/game-example-with-felgo} {Invasion} into its core components.
+
+	We will create a small shooter game which consists of
+	\list
+        \li \l {Player at the bottom of the screen}
+		\li \l {Randomly spawning enemies}
+		\li \l {Click-based shooting}
+		\li \l {Score system}
+		\li \l {Game Over overlay}
+	\endlist
+
+	The tutorial follows Felgos best practices: modular entities, MovementAnimation, and collision detection.
+	
+    \section1 Tutorial Overview
+    We will cover:
+    \list
+        \li \l {Setting up the GameWindow and Scene}
+        \li \l {Creating the player entity}
+		\li \l {Creating bullets and click based shooting}
+		\li \l {Creating and spawning enemiy entities}
+        \li \l {Handling collisions}
+        \li \l {Game logic and scoring}
+    \endlist
+
+    \section1 Prerequisites
+    \list
+        \li Felgo SDK installed
+        \li Basic knowledge of QML and JavaScript
+    \endlist
+	
+	
+	\section1 Project Setup
+	
+    \footer Next: \l {Setting up the GameWindow and Scene}
+*/

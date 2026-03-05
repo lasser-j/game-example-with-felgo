@@ -1,0 +1,19 @@
+body {
+    max-width: 900px;  /* prevents text or background stretching over the whole screen */
+    margin: 0 auto;    /* center content */
+    padding: 2em;
+    font-family: sans-serif;
+    line-height: 1.6;
+}
+
+pre.cpp {
+    background-color: #f4f4f4; /* gray background for code */
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+img {
+    display: block;
+    margin: 0 auto;    /* centers images */
+}
