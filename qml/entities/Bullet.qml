@@ -15,10 +15,17 @@ EntityBase {
     property real speed: 50
 
     // bullet image
-    Image {
-        anchors.fill: parent
-        source: "../../assets/img/bullet.png"
-        fillMode: Image.PreserveAspectFit
+    GameSpriteSequence {
+      anchors.fill: parent
+      running: gameScene.gameRunning
+      GameSprite {
+        frameCount: 4
+        frameRate: 15
+
+        frameWidth: 10
+        frameHeight: 10
+        source: Qt.resolvedUrl("../../assets/img/bullet.png")
+      }
     }
 
     // bullet movement from player position towards mouse position

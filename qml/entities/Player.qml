@@ -10,10 +10,17 @@ EntityBase {
     height: 40
 
     // player image
-    Image {
-        anchors.fill: parent
-        source: "../../assets/img/player.png"
-        fillMode: Image.PreserveAspectFit
+    GameSpriteSequence {
+      anchors.fill: parent
+      running: gameScene.gameRunning
+      GameSprite {
+        frameCount: 4
+        frameRate: 1
+
+        frameWidth: 39
+        frameHeight: 39
+        source: Qt.resolvedUrl("../../assets/img/player.png")
+      }
     }
 
     // collider to check if enemy hits the player

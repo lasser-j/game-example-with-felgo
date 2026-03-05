@@ -15,10 +15,17 @@ EntityBase {
     property real speed: 25
 
     // enemy image
-    Image {
-        anchors.fill: parent
-        source: "../../assets/img/enemy.png"
-        fillMode: Image.PreserveAspectFit
+    GameSpriteSequence {
+      anchors.fill: parent
+      running: gameScene.gameRunning
+      GameSprite {
+        frameCount: 2
+        frameRate: 5
+
+        frameWidth: 39
+        frameHeight: 39
+        source: Qt.resolvedUrl("../../assets/img/enemy.png")
+      }
     }
 
     // enemy movement towards player position

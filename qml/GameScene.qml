@@ -68,7 +68,7 @@ Scene {
 
             entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties);
             }
-            else {
+            else if(!delayTimer.running) { // wait for delay before allowing reset the game
                 resetGame();
             }
         }
@@ -111,6 +111,13 @@ Scene {
         }
     }
 
+    // delay timer for game over to not accidentally dismiss the screen
+    Timer {
+        id: delayTimer
+        interval: 500;
+        running: false;
+    }
+
     function calculateMovementParameters(x, y, destX, destY){
         // calculate direction from origin towards destination
         var dx = destX - x
@@ -134,7 +141,8 @@ Scene {
 
     function gameOver() {
         // freeze the game and stop movement
-        gameRunning = false
+        gameRunning = false;
+        delayTimer.restart();
     }
 
     function resetGame() {
