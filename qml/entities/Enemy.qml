@@ -6,8 +6,8 @@ EntityBase {
     entityType: "enemy"
 
     // enemy size
-    width: 40
-    height: 40
+    width: spriteSequence.width
+    height: spriteSequence.height
 
     // direction and speed for enemy
     property real velocityX: 0
@@ -16,7 +16,7 @@ EntityBase {
 
     // enemy image
     GameSpriteSequence {
-      anchors.fill: parent
+      id: spriteSequence
       running: gameScene.gameRunning
       GameSprite {
         frameCount: 2

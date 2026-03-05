@@ -6,12 +6,12 @@ EntityBase {
     entityType: "player"
 
     // player size
-    width: 40
-    height: 40
+    width: spriteSequence.width
+    height: spriteSequence.height
 
     // player image
     GameSpriteSequence {
-      anchors.fill: parent
+      id: spriteSequence
       running: gameScene.gameRunning
       GameSprite {
         frameCount: 4
@@ -35,7 +35,7 @@ EntityBase {
 
       // collisision between player and enemy
       fixture.onBeginContact: (other) => {
-        gameScene.gameOver();
+        gameScene.gameOver()
       }
     }
 }

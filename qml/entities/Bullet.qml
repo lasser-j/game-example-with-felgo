@@ -6,8 +6,8 @@ EntityBase {
     entityType: "bullet"
 
     // bullet size
-    width: 10
-    height: 10
+    width: spriteSequence.width
+    height: spriteSequence.height
 
     // direction and speed for bullet
     property real velocityX: 0
@@ -16,7 +16,7 @@ EntityBase {
 
     // bullet image
     GameSpriteSequence {
-      anchors.fill: parent
+      id: spriteSequence
       running: gameScene.gameRunning
       GameSprite {
         frameCount: 4
@@ -39,7 +39,7 @@ EntityBase {
       running: gameScene.gameRunning
 
       onLimitReached: {
-          removeEntity();
+          removeEntity()
       }
     }
 
@@ -53,7 +53,7 @@ EntityBase {
       running: gameScene.gameRunning
 
       onLimitReached: {
-          removeEntity();
+          removeEntity()
       }
     }
 
@@ -70,10 +70,10 @@ EntityBase {
       // collisision between bullet and enemy
       fixture.onBeginContact: (other) => {
           // increase score
-          gameScene.score++;
+          gameScene.score++
           // remove hit enemy and shot bullet
-          other.getBody().target.removeEntity();
-          removeEntity();
+          other.getBody().target.removeEntity()
+          removeEntity()
       }
     }
 }

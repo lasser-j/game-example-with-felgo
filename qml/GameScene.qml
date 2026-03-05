@@ -56,28 +56,28 @@ Scene {
         anchors.fill: gameWindowAnchorItem
         onPressed: (mouse)=> {
             if(gameRunning){
-            // calculate parameters to move the bullet from the middle of the player towards to the mouse position
-            var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
-                                                                 player.y + player.height/2, // y
-                                                                 mouse.x, // destX
-                                                                 mouse.y  // destY
-                                                                 );
-            // move bullet a bit outside of the player to not overlap with it
-            movementProperties.x += 22*movementProperties.velocityX - 5;
-            movementProperties.y += 22*movementProperties.velocityY - 5;
+                // calculate parameters to move the bullet from the middle of the player towards to the mouse position
+                var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
+                                                                     player.y + player.height/2, // y
+                                                                     mouse.x, // destX
+                                                                     mouse.y  // destY
+                                                                     )
+                // move bullet a bit outside of the player to not overlap with it
+                movementProperties.x += 22*movementProperties.velocityX - 5
+                movementProperties.y += 22*movementProperties.velocityY - 5
 
-            entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties);
+                entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
             }
             else if(!delayTimer.running) { // wait for delay before allowing reset the game
-                resetGame();
+                resetGame()
             }
         }
     }
 
     // spwaner for enemies
     Timer {
-        interval: baseEnemySpawnInterval;
-        running: gameRunning;
+        interval: baseEnemySpawnInterval
+        running: gameRunning
         repeat: true
 
         onTriggered: {
@@ -101,9 +101,9 @@ Scene {
                                                                  y, // y
                                                                  player.x + player.width/2, // destX
                                                                  player.y + player.height/2 // destY
-                                                                 );
+                                                                )
 
-            entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties);
+            entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties)
 
             // calculate new spawn frequency (each 20 points enemies will spawn faster)
             var difficulty = Math.floor(score / 20)
@@ -114,8 +114,8 @@ Scene {
     // delay timer for game over to not accidentally dismiss the screen
     Timer {
         id: delayTimer
-        interval: 500;
-        running: false;
+        interval: 500
+        running: false
     }
 
     function calculateMovementParameters(x, y, destX, destY){
@@ -136,24 +136,24 @@ Scene {
             velocityY: dy
         }
 
-        return newEntityProperties;
+        return newEntityProperties
     }
 
     function gameOver() {
         // freeze the game and stop movement
-        gameRunning = false;
-        delayTimer.restart();
+        gameRunning = false
+        delayTimer.restart()
     }
 
     function resetGame() {
         // delete all enemies and bullets
-        entityManager.removeEntitiesByFilter(["enemy","bullet"]);
+        entityManager.removeEntitiesByFilter(["enemy","bullet"])
 
-        score = 0;// reset score
+        score = 0 // reset score
 
         // rename overlay text for next game over
-        overlayText.primaryText = "GAME OVER";
-        overlayText.secondaryText = "click to restart";
+        overlayText.primaryText = "GAME OVER"
+        overlayText.secondaryText = "click to restart"
 
         // (re)start game
         gameRunning = true
