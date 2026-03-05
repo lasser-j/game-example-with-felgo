@@ -8,8 +8,15 @@ Scene {
     id: gameScene
 
     property bool gameRunning: false // pause the game until player clicks
-    property int baseEnemySpawnInterval: 500
+
     property real score: 0 // score dependent on how many enemies are shot
+
+    property int initEnemySpawnInterval: 500 // initial spawn intervall for enemies
+    property int minEnemySpawnInterval: 200 // fastest spawn intervall for enemies
+    property int difficultyStep: 20 // spawn intervall for enemies will be increased each difficultyStep score points
+    property int spawnAcceleration: 50 // acceleration for spawning enemies each difficultyStep
+
+    property int delayTimerInterval: 500 // delay for game over to not accidentally dismiss the screen
 
     PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 
@@ -76,7 +83,7 @@ Scene {
 
     // spwaner for enemies
     Timer {
-        interval: baseEnemySpawnInterval
+        interval: initEnemySpawnInterval
         running: gameRunning
         repeat: true
 
@@ -105,16 +112,16 @@ Scene {
 
             entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties)
 
-            // calculate new spawn frequency (each 20 points enemies will spawn faster)
-            var difficulty = Math.floor(score / 20)
-            interval = Math.max(200, baseEnemySpawnInterval - difficulty * 50)
+            // calculate new spawn frequency (enemies spawn faster depending on score)
+            var difficulty = Math.floor(score / difficultyStep)
+            interval = Math.max(minEnemySpawnInterval, initEnemySpawnInterval - difficulty * spawnAcceleration)
         }
     }
 
     // delay timer for game over to not accidentally dismiss the screen
     Timer {
         id: delayTimer
-        interval: 500
+        interval: delayTimerInterval
         running: false
     }
 
