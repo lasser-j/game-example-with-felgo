@@ -1,24 +1,28 @@
 /*!
 	\page How-to-build-a-simple-game-with-Felgo
 	\title How to build a simple game with Felgo
-	
-	Welcome to the step-by-step guide on creating a cross-platform game using \l {https://felgo.com} {Felgo}. 
-	In this tutorial, we will break down the example game \l {https://github.com/lasser-j/game-example-with-felgo} {Invasion} into its core components.
 
-	We will create a small shooter game which consists of
+	Welcome to the step-by-step guide on creating a cross-platform game using \l {https://felgo.com} {Felgo}. 
+	In this tutorial, we will break down an example game called Invasion into its core components. The complete source code is available at \l {https://github.com/lasser-j/game-example-with-felgo} {Github}. Below you will find a small preview image to give you an impression of the look and feel of the game.
+
+	\image {preview.png}
+
+	Here's a brief overview of the small shooter game we're developing:
 	\list
-        \li \l {Player at the bottom of the screen}
-		\li \l {Randomly spawning enemies}
-		\li \l {Click-based shooting}
-		\li \l {Score system}
-		\li \l {Game Over overlay}
+        \li Player at the bottom of the screen
+		\li Randomly spawning enemies
+		\li Click-based shooting
+		\li Score system
+		\li Game Over overlay
 	\endlist
 
-	The tutorial follows Felgos best practices: modular entities, MovementAnimation, and collision detection.
-	
+	This tutorial follows Felgo's best practices: modular entities, move animations and collision detection.
+
     \section1 Tutorial Overview
+
     We will cover:
     \list
+		\li \l {Project setup and structure}
         \li \l {Setting up the GameWindow and Scene}
         \li \l {Creating the player entity}
 		\li \l {Creating bullets and click based shooting}
@@ -27,14 +31,56 @@
         \li \l {Game logic and scoring}
     \endlist
 
-    \section1 Prerequisites
-    \list
-        \li Felgo SDK installed
-        \li Basic knowledge of QML and JavaScript
-    \endlist
-	
-	
-	\section1 Project Setup
-	
-    \footer Next: \l {Setting up the GameWindow and Scene}
+    \section1 Project setup and structure
+	\list 1
+		\li Install Felgo and Qt Creator. You can speed this up using \l {https://felgo.com/doc/felgo-get-started-games/} {Felgo's tutorial}
+		\li Open QtCreator and create a new empty felgo games project and name it Invasion
+		\li Create the following directory structure
+			\code
+			qml/
+			    GameScene.qml
+			    entities/
+			        Player.qml
+			        Enemy.qml
+			        Bullet.qml
+			    items/
+			        OverlayText.qml
+			assets/
+			    img/
+			        background.png
+			        player.png
+			        enemy.png
+			        bullet.png
+			\endcode
+			If you do not want to use or create your own images, you can simply use the image at \l {https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img} {Github} as a reference.
+		\endlist
+
+		Afer setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
+
+		\code
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		GameWindow {
+			id: gameWindow
+
+			// ...
+
+			activeScene: scene
+
+			// ...
+			screenWidth: 960
+			screenHeight: 640
+
+			Scene {
+			}
+		}
+		\endcode
+
+	\section1 Setting up the GameWindow and Scene
+    \section1 Creating the player entity
+	\section1 Creating bullets and click based shooting
+	\section1 Creating and spawning enemiy entities
+    \section1 Handling collisions
+    \section1 Game logic and scoring
 */
