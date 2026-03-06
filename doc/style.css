@@ -1,5 +1,5 @@
 body {
-    max-width: 900px;  /* prevents text or background stretching over the whole screen */
+    max-width: 950px;  /* prevents text or background stretching over the whole screen */
     margin: 0 auto;    /* center content */
     padding: 2em;
     font-family: sans-serif;

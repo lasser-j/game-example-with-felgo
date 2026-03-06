@@ -185,6 +185,172 @@
 	\image {PlayerOnBackround.png}
 
 	\section1 Creating bullets and click based shooting
+
+	As next step we let the player shoot. Let's start with the implementation of \c{qml/Bullet.qml} and consider  what we need for it. First, we need to save the direction and speed of the bullet. To give it a nice look, we will use again a \c{GameSprite} with 4 frames:
+
+	\image {bullet.png}
+
+	Similar to the \c{Player}, we add all of this to \c{qml/Bullet.qml}:
+
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		EntityBase {
+			id: bullet
+			entityType: "bullet"
+
+			// bullet size
+			width: spriteSequence.width
+			height: spriteSequence.height
+
+			// direction and speed for bullet
+			property real velocityX: 0
+			property real velocityY: 0
+			property real speed: 50
+
+			// bullet image
+			GameSpriteSequence {
+			id: spriteSequence
+			running: gameScene.gameRunning
+			GameSprite {
+				frameCount: 4
+				frameRate: 15
+
+				frameWidth: 10
+				frameHeight: 10
+				source: Qt.resolvedUrl("../../assets/img/bullet.png")
+			}
+			}
+		}
+	\endqml
+
+	Now that we have all the information to move the bullet, we will implement two \l {https://felgo.com/doc/felgo-movementanimation/}{MovementAnimation}s - One for X and one for Y direction.
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		EntityBase {
+			// ...
+			// bullet image
+			// ...
+
+			// bullet movement from player position towards mouse position
+			MovementAnimation {
+				id: movementX
+				target: parent
+				property: "x"
+				velocity: velocityX * speed
+				running: gameScene.gameRunning
+			}
+
+			MovementAnimation {
+				id: movementY
+				target: parent
+				property: "y"
+				velocity: velocityY * speed
+				running: gameScene.gameRunning
+			}
+		}
+	\endqml
+
+	As soon as the bullet moves out of the screen, we will destroy it. So we will set the properties \c{minPropertyValue} and \c{maxPropertyValue} to remove the bullet in the \c{onLimitReached} method of the \c{MovementAnimation}.
+
+	\qml
+		// bullet movement from player position towards mouse position
+		MovementAnimation {
+			// ...
+			minPropertyValue: -parent.width
+			maxPropertyValue: gameScene.gameWindowAnchorItem.width
+
+			onLimitReached: {
+				removeEntity()
+			}
+		}
+
+		MovementAnimation {
+			// ...
+			minPropertyValue: -parent.height
+			maxPropertyValue: gameScene.gameWindowAnchorItem.height
+
+			onLimitReached: {
+				removeEntity()
+			}
+		}
+	\endqml
+
+	We now have bullets, but we need to spawn them when the players clicks on the screen. Fortunately we can use Felgo's \l {https://felgo.com/doc/qt/qml-qtquick-mousearea.html}{MouseArea} component to detect the mouse position and calculate the direction from player to mouse position. We will outsource the calculation to a seperate function in the \c{qml/GameSceen.qml}, since we will need it later also for enemy creation.
+
+	qml/GameSceen.qml:
+	\qml
+		Scene {
+			// player
+			// ...
+
+			function calculateMovementParameters(x, y, destX, destY){
+				// calculate direction from origin towards destination
+				var dx = destX - x
+				var dy = destY - y
+				var len = Math.sqrt(dx*dx + dy*dy)
+				dx /= len
+				dy /= len
+
+				// create propeerties for movement animation
+				// x/y: start position of bullet - player position moved slightly into direction of mouse click
+				// velocityX/Y: direction towards mouse position, used for moving the bullet
+				var newEntityProperties = {
+					x: x,
+					y: y,
+					velocityX: dx,
+					velocityY: dy
+				}
+
+				return newEntityProperties
+			}
+	\endqml
+
+	For the actual creation of the bullets, we use the \l {https://felgo.com/doc/felgo-entitymanager/}{EntityManager}, which manages all \c{EntityBase} objects of the \c{GameSceen} and enables us to create \c{EntityBase} objects dynamically.
+
+	qml/GameSceen.qml:
+	\qml
+		Scene {
+			// player
+			// ...
+
+			// create bullets at runtime
+			EntityManager {
+			id: entityManager
+			entityContainer: gameScene
+			}
+
+			// trigger bullet shots when mouse was clicked
+			MouseArea {
+				anchors.fill: gameWindowAnchorItem
+				onPressed: (mouse)=> {
+					// calculate parameters to move the bullet from the middle of the player towards to the mouse position
+					var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
+                                                                        player.y + player.height/2, // y
+                                                                        mouse.x, // destX
+                                                                        mouse.y  // destY
+                                                                        )
+					// move bullet a bit outside of the player to not overlap with it
+					movementProperties.x += 22*movementProperties.velocityX - 5
+					movementProperties.y += 22*movementProperties.velocityY - 5
+
+					entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+				}
+			}
+
+			function calculateMovementParameters(x, y, destX, destY){
+				// ...
+			}
+		}
+	\endqml
+
+	At the end of this section, you will see how the bullets are created after clicking on the screen, move towards the clich direction and are being destroyed when leaving the screen.
+
+	\image {PlayerWithBullets.png}
+
 	\section1 Creating and spawning enemiy entities
     \section1 Handling collisions
     \section1 Game logic and scoring
