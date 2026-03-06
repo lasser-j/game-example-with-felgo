@@ -211,16 +211,16 @@
 
 			// bullet image
 			GameSpriteSequence {
-			id: spriteSequence
-			running: gameScene.gameRunning
-			GameSprite {
-				frameCount: 4
-				frameRate: 15
+				id: spriteSequence
+				running: gameScene.gameRunning
+				GameSprite {
+					frameCount: 4
+					frameRate: 15
 
-				frameWidth: 10
-				frameHeight: 10
-				source: Qt.resolvedUrl("../../assets/img/bullet.png")
-			}
+					frameWidth: 10
+					frameHeight: 10
+					source: Qt.resolvedUrl("../../assets/img/bullet.png")
+				}
 			}
 		}
 	\endqml
@@ -307,6 +307,7 @@
 
 				return newEntityProperties
 			}
+		}
 	\endqml
 
 	For the actual creation of the bullets, we use the \l {https://felgo.com/doc/felgo-entitymanager/}{EntityManager}, which manages all \c{EntityBase} objects of the \c{GameSceen} and enables us to create \c{EntityBase} objects dynamically.
@@ -352,6 +353,210 @@
 	\image {PlayerWithBullets.png}
 
 	\section1 Creating and spawning enemiy entities
-    \section1 Handling collisions
+
+	Now we need something that the bullets can hit. This is where our enemies come in! So lets implement \c{qml/Enemy.qml}. This class will be very similar to our \c{Bullet} class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, as the game is over as soon as the player is hit. \c{qml/Enemy.qml} will look like following:
+
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		EntityBase {
+			id: enemy
+			entityType: "enemy"
+
+			// enemy size
+			width: spriteSequence.width
+			height: spriteSequence.height
+
+			// direction and speed for enemy
+			property real velocityX: 0
+			property real velocityY: 0
+			property real speed: 25
+
+			// enemy image
+			GameSpriteSequence {
+				id: spriteSequence
+				running: gameScene.gameRunning
+				GameSprite {
+					frameCount: 2
+					frameRate: 5
+
+					frameWidth: 39
+					frameHeight: 39
+					source: Qt.resolvedUrl("../../assets/img/enemy.png")
+				}
+			}
+
+			// enemy movement towards player position
+			MovementAnimation {
+				id: movementX
+				target: parent
+				property: "x"
+				velocity: velocityX * speed
+				running: gameScene.gameRunning
+			}
+
+			MovementAnimation {
+				id: movementY
+				target: parent
+				property: "y"
+				velocity: velocityY * speed
+				running: gameScene.gameRunning
+			}
+		}
+	\endqml
+
+	As previously discussed, the enemies will appear randomly on the left, right or top of the screen. For the \c{MovementAnimation} parameters, we again use the function \c{calculateMovementParameters} method. This time, however, the spawning is triggered by a \l {https://felgo.com/doc/qt/qml-qtqml-timer.html}{Timer} component which we use to make the enemies appear periodically.
+
+	First, we use random numbers to calculate on which side the opponent will appear. Based on this X and Y position, as well as the player's position, we calculate the movement parameters. As before, enemy generation is handled by the /c{entityManager}.
+
+	qml/GameScene.qml:
+	\qml
+		Scene {
+			// ...
+
+			property int initEnemySpawnInterval: 500 // initial spawn intervall for enemies
+
+			// ...
+			// trigger bullet shots when mouse was clicked
+			// ...
+
+			// spwaner for enemies
+			Timer {
+				interval: initEnemySpawnInterval
+				running: gameRunning
+				repeat: true
+
+				onTriggered: {
+					// enemies should appear on a random side, except at the bottom
+					var side = Math.floor(Math.random() * 3)
+					var x, y
+
+					if (side === 0) { // top
+						x = Math.random() * gameWindowAnchorItem.width
+						y = -player.width
+					} else if (side === 1) { // left
+						x = -player.width
+						y = Math.random() * gameWindowAnchorItem.height
+					} else { // right
+						x = gameWindowAnchorItem.width + player.width
+						y = Math.random() * gameWindowAnchorItem.height
+					}
+
+					// calculate parameters to move the bullet towards the mouse position
+					var movementProperties = calculateMovementParameters(x, // x
+                                                                        y, // y
+                                                                        player.x + player.width/2, // destX
+                                                                        player.y + player.height/2 // destY
+                                                                        )
+
+					entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties)
+				}
+			}
+		// ...
+		}
+	\endqml
+
+	At the end of these steps, you will see enemies spawning and moving toward the player.
+
+	\image {PlayerBulletsEnemies.png}
+
+	\section1 Handling collisions
+
+	We now have beatiful objects flying across the screen. However, there is currently no collision dedection. This is where Felgo's \l {https://felgo.com/doc/felgo-circlecollider/}{CircleCollider} comes in. We will add one for each of the \c{Player}, \c{Enemy} and \c{Bullet} classes. Using them we can automatically check whether objects intersect and react to it.
+
+	First, we implement a \c{gameOver()} function in \c{qml/GameSceene.qml}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectily stops all our \c{MovementAnimation}'s and pauses the game.
+
+	qml/GameSceene.qml:
+	\qml
+		Scene {
+			// ...
+			// spwaner for enemies
+			// ...
+			function gameOver() {
+				// freeze the game and stop movement
+				gameRunning = false
+			}
+		}
+	\endqml
+
+	Now, let's add the collision code for our entities. In addition we define in the \c{CicleCollider} which of them should collide with each other. The bullet may only collide with enemies, while enemies can collide with bullets or the player. For this, we use \c{categories} and \c{collidesWith} from our \c{CicleCollider}'s.
+
+	qml/Player.qml:
+	\qml
+		EntityBase {
+			// ...
+			// player image
+			// ...
+
+			// collider to check if enemy hits the player
+			CircleCollider {
+				radius: parent.height/2 // radius for collision dedection
+				anchors.centerIn: parent // position centered at player
+				collisionTestingOnlyMode: true // player will not be affected by gravity or other applied physics forces
+
+				// player should only collide with enemy
+				categories:   Circle.Category1
+				collidesWith: Circle.Category2
+
+				// collisision between player and enemy
+				fixture.onBeginContact: (other) => {
+					gameScene.gameOver()
+				}
+			}
+		}
+	\endqml
+
+	qml/Enemy.qml:
+	\qml
+		EntityBase {
+			// ...
+			// enemy movement towards player position
+			// ...
+
+			// collider to check if enemy reached the player or was hit by a bullet
+			CircleCollider {
+				radius: parent.height/2 // radius for collision dedection
+				anchors.centerIn: parent // position centered at bullet
+				collisionTestingOnlyMode: true // enemy will not be affected by gravity or other applied physics forces
+
+				// enemy should collide with player and bullet
+				categories:   Circle.Category2
+				collidesWith: Circle.Category1 | Circle.Category3
+			}
+		}
+	\endqml
+
+	qml\Bullet.qml:
+	\qml
+		EntityBase {
+			// ...
+			// bullet image
+			// ...
+
+			// collider to check if bullet hits an enemy
+			CircleCollider {
+				radius: parent.height/2 // radius for collision dedection
+				anchors.centerIn: parent // position centered at bullet
+				collisionTestingOnlyMode: true // bullet will not be affected by gravity or other applied physics forces
+
+				// bullet should only collide with enemy
+				categories:   Circle.Category3
+				collidesWith: Circle.Category2
+
+				// collisision between bullet and enemy
+				fixture.onBeginContact: (other) => {
+					// increase score
+					gameScene.score++
+					// remove hit enemy and shot bullet
+					other.getBody().target.removeEntity()
+					removeEntity()
+				}
+			}
+		}
+	\endqml
+
+	After implementing all of these steps, we have finally a first working prototype! The enemies  appear and move, we can shoot and collisions are now detected, which ether delets git enemies / bullets or pause the game. We can confidently call this a big milestone!
+
     \section1 Game logic and scoring
 */
