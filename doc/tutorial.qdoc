@@ -33,7 +33,7 @@
 
     \section1 Project setup and structure
 	\list 1
-		\li Install Felgo and Qt Creator. You can speed this up using \l {https://felgo.com/doc/felgo-get-started-games/} {Felgo's tutorial}
+		\li Install Felgo and Qt Creator. You can speed this up using \l {https://felgo.com/doc/felgo-get-started-games/}{Felgo's tutorial}
 		\li Open QtCreator and create a new empty felgo games project and name it Invasion
 		\li Create the following directory structure
 			\code
@@ -52,12 +52,12 @@
 			        enemy.png
 			        bullet.png
 			\endcode
-			If you do not want to use or create your own images, you can simply use the image at \l {https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img} {Github} as a reference.
+			If you do not want to use or create your own images, you can simply use the image at \l {https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img}{Github} as a reference.
 		\endlist
 
 		Afer setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
 
-		\code
+		\qml
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -75,10 +75,115 @@
 			Scene {
 			}
 		}
-		\endcode
+		\endqml
 
 	\section1 Setting up the GameWindow and Scene
+	As first step, we create the \c{GameScene} where all the game components come together. We move the \l{https://felgo.com/doc/felgo-scene/}{Scene} element from \c{qml/Main.qml} to the dedicated file \c{qml/GameSceen.qml}. Here, we also add the background image as starting point. To display the image from \c{assets/img/background.png} we use the \l {https://doc.qt.io/archives/qt-5.15/qml-qtquick-image.html}{Image} component. The backround should fill the whole sceen, regardless of the screen resolution. We achieve this with \c{anchors.fill: gameWindowAnchorItem}. Furthermore, the background should not be stretched or distorted, so we set \c{fillMode: Image.PreserveAspectCrop}.
+
+	To indicate whether the game is running or not, we add a \c{gameRunning} property to the \c{GameScene}. This will later be used, for example, to pause the game if the player is hit by an enemy.
+
+	qml/Main.qml:
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		GameWindow {
+			id: gameWindow
+
+			// ...
+
+			activeScene: GameScene
+
+			// the size of the Window can be changed at runtime by pressing Ctrl (or Cmd on Mac) + the number keys 1-8
+			screenWidth: 960
+			screenHeight: 640
+
+			// game scene where the actual game is located
+			GameScene {	}
+		}
+	\endqml
+
+	qml/GameSceen.qml:
+	\qml
+		Scene {
+			id: gameScene
+
+			property bool gameRunning: true
+
+			// background image
+			Image {
+				anchors.fill: gameWindowAnchorItem
+				fillMode: Image.PreserveAspectCrop
+				source: "../assets/img/background.png"
+			}
+		}
+	\endqml
+
+	When running the project at this step, a screen with the background image will be displayed.
+	\image {background.png}
+
     \section1 Creating the player entity
+
+	The player is an independent entity that can shoot bullets towards the mouse click. We will center him at the bottom of the screen. As base element we are using \l {https://felgo.com/doc/felgo-entitybase/}{EntityBase}, as we will for all files created in the \c{qml/entities} directory. This is the base class of all Felgo entities and enables them to be controlled by the \l {https://felgo.com/doc/felgo-entitymanager/}{EntityManager}. 
+
+	For a visually appealing presentation, we use a \l {https://felgo.com/doc/felgo-gamesprite/}{GameSprite} in combination with a \l {https://felgo.com/doc/felgo-gamespritesequence/}{GameSpriteSequence} to implement animations. Our image consist of 4 frames, which are used by the \c{GameSpriteSequence} to animate the player.
+
+	\image {player.png}
+
+	qml/Player.qml:
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		EntityBase {
+			id: player
+			entityType: "player"
+
+			// player size
+			width: spriteSequence.width
+			height: spriteSequence.height
+
+			// player image
+			GameSpriteSequence {
+				id: spriteSequence
+				running: gameScene.gameRunning
+				GameSprite {
+					frameCount: 4
+					frameRate: 1
+
+					frameWidth: 39
+					frameHeight: 39
+					source: Qt.resolvedUrl("../../assets/img/player.png")
+				}
+			}
+		}
+	\endqml
+
+	To actually make the player visible in the game, we need to add him to the \c{GameScene} directly below our background image. Here we also center it to the bottom of the screen:
+
+	qml/GameSceen.qml:
+	\qml
+		Scene {
+			id: gameScene
+
+			property bool gameRunning: true
+
+			// background image
+			// ...
+
+			// player
+			Player {
+				id: player
+				anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
+				y: gameWindowAnchorItem.height - height - 10
+			}
+		}
+	\endqml
+
+	Now we will see the player positioned in the right place in our game.
+
+	\image {PlayerOnBackround.png}
+
 	\section1 Creating bullets and click based shooting
 	\section1 Creating and spawning enemiy entities
     \section1 Handling collisions

@@ -1,5 +1,6 @@
 project = FelgoGameTutorial
 description = Creating a Simple Game with Felgo
+language = QML
 sourcedirs = .
 imagedirs = ./images
 

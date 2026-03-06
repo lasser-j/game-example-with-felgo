@@ -6,7 +6,7 @@ body {
     line-height: 1.6;
 }
 
-pre.cpp {
+pre.qml {
     background-color: #f4f4f4; /* gray background for code */
     border: 1px solid #ccc;
     padding: 10px;
@@ -23,4 +23,5 @@ code {
 img {
     display: block;
     margin: 0 auto;    /* centers images */
+    max-height: 400px;
 }
