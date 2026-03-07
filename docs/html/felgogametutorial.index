@@ -2,7 +2,7 @@
 <!DOCTYPE QDOCINDEX>
 <INDEX url="" title="Creating a Simple Game with Felgo" version="" project="FelgoGameTutorial">
     <namespace name="" status="active" access="public" module="felgogametutorial">
-        <page name="How-to-create-a-simple-game-with-Felgo" href="how-to-create-a-simple-game-with-felgo.html" status="active" location="tutorial.qdoc" filepath="D:/Github/invasion/doc/tutorial.qdoc" lineno="1" documented="true" subtype="page" title="How to build a simple game with Felgo" fulltitle="How to build a simple game with Felgo" subtitle="">
+        <page name="How-to-create-a-simple-game-with-Felgo" href="how-to-create-a-simple-game-with-felgo.html" status="active" location="tutorial.qdoc" filepath="D:/Github/invasion/docs/tutorial.qdoc" lineno="1" documented="true" subtype="page" title="How to build a simple game with Felgo" fulltitle="How to build a simple game with Felgo" subtitle="">
             <contents name="tutorial-overview" title="Tutorial Overview" level="1"/>
             <contents name="project-setup-and-structure" title="Project setup and structure" level="1"/>
             <contents name="setting-up-the-gamewindow-and-scene" title="Setting up the GameWindow and Scene" level="1"/>
