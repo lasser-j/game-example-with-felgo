@@ -742,4 +742,94 @@
 
     \section1 Game overlay
 
+	Here is one last thing we need to do. We want to display the score and the messages "Game Over" or "Pause". To keep it as simple as possible, we will implement a text overlay \c{OverlayText}. This class is very short and consists of primary and secondary text, as well as a highlight rectangle that separates the text from the game.
+
+	qml/OverlayText.qml:
+	\qml
+		import Felgo 4.0
+		import QtQuick 2.0
+
+		Item {
+			z: 1 // forces objet to be drawn above the game elements
+
+			property alias primaryText: primaryText.text
+			property alias secondaryText: secondaryText.text
+
+			// background
+			Rectangle {
+				anchors.fill: textBlock
+				color: "darkgray"
+				opacity: 0.2
+			}
+
+			// overlay text
+			Column {
+				id: textBlock
+				anchors.centerIn: parent
+				Text {
+					id: primaryText
+					font.pixelSize: 40
+					color: "red"
+				}
+				Text {
+					id: secondaryText
+					anchors.horizontalCenter:
+						primaryText.text != "" ? primaryText.horizontalCenter : parent.horizontalCenter
+					font.pixelSize: 14
+					color: "red"
+				}
+			}
+		}
+	\endqml
+
+	We will use the newly created \c{OverlayText} class in our \c{GameScene} and add one element for the score text and one for the game overlay and restart text.
+
+	qml/GameScene.qml:
+	\qml
+		Scene {
+			// ...
+
+			// score text
+			OverlayText {
+				id: scoreText
+				anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
+				y: 10
+				secondaryText: "score: " + score
+			}
+
+			// game over or restart text
+			OverlayText {
+				id: overlayText
+				anchors.centerIn: gameWindowAnchorItem
+				visible: !gameRunning
+
+				primaryText: "pause"
+				secondaryText: "click to start"
+			}
+
+			// ...
+
+			function resetGame() {
+				// delete all enemies and bullets
+				entityManager.removeEntitiesByFilter(["enemy","bullet"])
+
+				score = 0 // reset score
+
+				// rename overlay text for next game over
+				overlayText.primaryText = "GAME OVER"
+				overlayText.secondaryText = "click to restart"
+
+				// (re)start game
+				gameRunning = true
+			}
+		}
+	\endqml
+
+	With these few changes, we now have a pause and a game over screen and we will actually see how many points we have collected.
+
+	\image {pause.png}
+	\image {gameOver.png}
+
+	That's it, now enjoy hunting for a new highscore!
+
 */

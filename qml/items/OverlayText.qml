@@ -2,7 +2,7 @@ import Felgo 4.0
 import QtQuick 2.0
 
 Item {
-    z: 1
+    z: 1 // forced object to be drawn above the game elements
 
     property alias primaryText: primaryText.text
     property alias secondaryText: secondaryText.text
