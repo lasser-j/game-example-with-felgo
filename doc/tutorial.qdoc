@@ -54,29 +54,30 @@
 			        bullet.png
 			\endcode
 			If you do not want to use or create your own images, you can simply use the image at \l {https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img}{Github} as a reference.
-		\endlist
+	\endlist
 
-		Afer setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
+	Afer setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
 
-		\qml
-		import Felgo 4.0
-		import QtQuick 2.0
+	qml/GameWindow.qml:
+	\qml
+	import Felgo 4.0
+	import QtQuick 2.0
 
-		GameWindow {
-			id: gameWindow
+	GameWindow {
+		id: gameWindow
 
-			// ...
+		// ...
 
-			activeScene: scene
+		activeScene: scene
 
-			// ...
-			screenWidth: 960
-			screenHeight: 640
+		// ...
+		screenWidth: 960
+		screenHeight: 640
 
-			Scene {
-			}
+		Scene {
 		}
-		\endqml
+	}
+	\endqml
 
 	\section1 Setting up the GameWindow and Scene
 	As first step, we create the \c{GameScene} where all the game components come together. We move the \l{https://felgo.com/doc/felgo-scene/}{Scene} element from \c{qml/Main.qml} to the dedicated file \c{qml/GameScene.qml}. Here, we also add the background image as starting point. To display the image from \c{assets/img/background.png} we use the \l {https://doc.qt.io/archives/qt-5.15/qml-qtquick-image.html}{Image} component. The backround should fill the whole sceen, regardless of the screen resolution. We achieve this with \c{anchors.fill: gameWindowAnchorItem}. Furthermore, the background should not be stretched or distorted, so we set \c{fillMode: Image.PreserveAspectCrop}.
@@ -131,7 +132,7 @@
 
 	\image {player.png}
 
-	qml/Player.qml:
+	qml/entities/Player.qml:
 	\qml
 		import Felgo 4.0
 		import QtQuick 2.0
@@ -187,12 +188,13 @@
 
 	\section1 Creating bullets and click based shooting
 
-	As next step we let the player shoot. Let's start with the implementation of \c{qml/Bullet.qml} and consider  what we need for it. First, we need to save the direction and speed of the bullet. To give it a nice look, we will use again a \c{GameSprite} with 4 frames:
+	As next step we let the player shoot. Let's start with the implementation of \c{Bullet} and consider  what we need for it. First, we need to save the direction and speed of the bullet. To give it a nice look, we will use again a \c{GameSprite} with 4 frames:
 
 	\image {bullet.png}
 
-	Similar to the \c{Player}, we add all of this to \c{qml/Bullet.qml}:
+	Similar to the \c{Player}, we add all of this to \c{Bullet}:
 
+	qml/entities/Bullet.qml:
 	\qml
 		import Felgo 4.0
 		import QtQuick 2.0
@@ -227,6 +229,8 @@
 	\endqml
 
 	Now that we have all the information to move the bullet, we will implement two \l {https://felgo.com/doc/felgo-movementanimation/}{MovementAnimation}s - One for X and one for Y direction.
+
+	qml/entities/Bullet.qml:
 	\qml
 		import Felgo 4.0
 		import QtQuick 2.0
@@ -257,6 +261,7 @@
 
 	As soon as the bullet moves out of the screen, we will destroy it. So we will set the properties \c{minPropertyValue} and \c{maxPropertyValue} to remove the bullet in the \c{onLimitReached} method of the \c{MovementAnimation}.
 
+	qml/entities/Bullet.qml:
 	\qml
 		// bullet movement from player position towards mouse position
 		MovementAnimation {
@@ -355,8 +360,9 @@
 
 	\section1 Creating and spawning enemiy entities
 
-	Now we need something that the bullets can hit. This is where our enemies come in! So lets implement \c{qml/Enemy.qml}. This class will be very similar to our \c{Bullet} class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, as the game is over as soon as the player is hit. \c{qml/Enemy.qml} will look like following:
+	Now we need something that the bullets can hit. This is where our enemies come in! So lets implement \c{Enemy.qml}. This class will be very similar to our \c{Bullet} class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, as the game is over as soon as the player is hit. \c{qml/Enemy.qml} will look like following:
 
+	qml/entities/Enemy.qml:
 	\qml
 		import Felgo 4.0
 		import QtQuick 2.0
@@ -466,7 +472,7 @@
 
 	We now have beatiful objects flying across the screen. However, there is currently no collision dedection. This is where Felgo's \l {https://felgo.com/doc/felgo-circlecollider/}{CircleCollider} comes in. We will add one for each of the \c{Player}, \c{Enemy} and \c{Bullet} classes. Using them we can automatically check whether objects intersect and react to it.
 
-	First, we implement a \c{gameOver()} function in \c{qml/GameScene.qml}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectily stops all our \c{MovementAnimation}'s and pauses the game.
+	First, we implement a \c{gameOver()} function in \c{GameScene}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectily stops all our \c{MovementAnimation}'s and pauses the game.
 
 	qml/GameScenee.qml:
 	\qml
@@ -483,7 +489,7 @@
 
 	Now, let's add the collision code for our entities. In addition we define in the \c{CicleCollider} which of them should collide with each other. The bullet may only collide with enemies, while enemies can collide with bullets or the player. For this, we use \c{categories} and \c{collidesWith} from our \c{CicleCollider}'s.
 
-	qml/Player.qml:
+	qml/entities/Player.qml:
 	\qml
 		EntityBase {
 			// ...
@@ -508,7 +514,7 @@
 		}
 	\endqml
 
-	qml/Enemy.qml:
+	qml/entities/Enemy.qml:
 	\qml
 		EntityBase {
 			// ...
@@ -528,7 +534,7 @@
 		}
 	\endqml
 
-	qml/Bullet.qml:
+	qml/entities/Bullet.qml:
 	\qml
 		EntityBase {
 			// ...
@@ -638,7 +644,7 @@
 
 	Increasing the score takes place in the \c{CicleCollider} of our \c{Bullet} class.
 
-	qml/Bullet.qml:
+	qml/entities/Bullet.qml:
 	\qml
 		EntityBase {
 			// ...
@@ -744,7 +750,7 @@
 
 	Here is one last thing we need to do. We want to display the score and the messages "Game Over" or "Pause". To keep it as simple as possible, we will implement a text overlay \c{OverlayText}. This class is very short and consists of primary and secondary text, as well as a highlight rectangle that separates the text from the game.
 
-	qml/OverlayText.qml:
+	qml/items/OverlayText.qml:
 	\qml
 		import Felgo 4.0
 		import QtQuick 2.0
