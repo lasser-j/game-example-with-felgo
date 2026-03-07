@@ -471,11 +471,13 @@
 
 	We now have beautiful objects flying across the screen. However, there is currently no collision detection. This is where Felgo's \l{https://felgo.com/doc/felgo-circlecollider/}{CircleCollider} comes in. We will add one for each of the \c{Player}, \c{Enemy} and \c{Bullet} classes. Using them, we can automatically check whether objects intersect and react to it.
 
-	First, we implement a \c{gameOver()} function in \c{GameScene}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectively stops all our \c{MovementAnimation}s and pauses the game.
+	First, we implement a \c{gameOver()} function in \c{GameScene}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectively stops all our \c{MovementAnimation}s and pauses the game. We also need to add the \l{https://felgo.com/doc/felgo-physicsworld/}{PhysicsWorld} component, which allows Felgo's collision objects to interact with each other.
 
 	\c{qml/GameScene.qml}:
 	\code
 		Scene {
+			// ...
+			PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 			// ...
 			// spawner for enemies
 			// ...
