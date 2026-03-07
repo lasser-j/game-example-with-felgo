@@ -2,40 +2,40 @@
 	\page How-to-build-a-simple-game-with-Felgo
 	\title How to build a simple game with Felgo
 
-	Welcome to the step-by-step guide on creating a cross-platform game using \l {https://felgo.com} {Felgo}. 
-	In this tutorial, we will break down an example game called Invasion into its core components. The complete source code is available at \l {https://github.com/lasser-j/game-example-with-felgo} {Github}. Below you will find a small preview image to give you an impression of the look and feel of the game.
+	Welcome to the step-by-step guide on creating a cross-platform game using \l{https://felgo.com}{Felgo}.
+	In this tutorial, we will break down an example game called Invasion into its core components. The full source code of the game is available at \l{https://github.com/lasser-j/game-example-with-felgo}{GitHub}. Below you will find a small preview image to give you an impression of the game's look and feel.
 
 	\image {preview.png}
 
-	Here's a brief overview of the small shooter game we're developing:
+	Here's a quick overview of the small shooter game we are going to build:
 	\list
-        \li Player at the bottom of the screen
+        \li Player positioned at the bottom of the screen
 		\li Randomly spawning enemies
 		\li Click-based shooting
 		\li Score system
 		\li Game Over
 	\endlist
 
-	This tutorial follows Felgo's best practices: modular entities, move animations and collision detection.
+	This tutorial follows Felgo's best practices: modular entities, movement animations and collision detection.
 
     \section1 Tutorial Overview
 
     We will cover:
     \list
-		\li \l {Project setup and structure}
-        \li \l {Setting up the GameWindow and Scene}
-        \li \l {Creating the player entity}
-		\li \l {Creating bullets and click based shooting}
-		\li \l {Creating and spawning enemiy entities}
-        \li \l {Handling collisions}
-        \li \l {Game logic}
-        \li \l {Game overlay}
+		\li \l{Project setup and structure}
+        \li \l{Setting up the GameWindow and Scene}
+        \li \l{Creating the player entity}
+		\li \l{Creating bullets and click-based shooting}
+		\li \l{Creating and spawning enemy entities}
+        \li \l{Handling collisions}
+        \li \l{Game logic}
+        \li \l{Game overlay}
     \endlist
 
     \section1 Project setup and structure
 	\list 1
-		\li Install Felgo and Qt Creator. You can speed this up using \l {https://felgo.com/doc/felgo-get-started-games/}{Felgo's tutorial}
-		\li Open QtCreator and create a new empty felgo games project and name it Invasion
+		\li Install Felgo and Qt Creator. You can speed this up by following \l{https://felgo.com/doc/felgo-get-started-games/}{Felgo's tutorial}
+		\li Open Qt Creator and create a new empty Felgo Games project, naming it Invasion
 		\li Create the following directory structure
 			\code
 			qml/
@@ -53,13 +53,13 @@
 			        enemy.png
 			        bullet.png
 			\endcode
-			If you do not want to use or create your own images, you can simply use the image at \l {https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img}{Github} as a reference.
+			If you do not want to use or create your own images, you can simply reference the image at \l{https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img}{GitHub}.
 	\endlist
 
-	Afer setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
+	After setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open \c{qml/Main.qml} and remove all content except for the basic scene structure:
 
-	qml/GameWindow.qml:
-	\qml
+	\c{qml/Main.qml}:
+	\code
 	import Felgo 4.0
 	import QtQuick 2.0
 
@@ -74,18 +74,17 @@
 		screenWidth: 960
 		screenHeight: 640
 
-		Scene {
-		}
+		Scene {	}
 	}
-	\endqml
+	\endcode
 
 	\section1 Setting up the GameWindow and Scene
-	As first step, we create the \c{GameScene} where all the game components come together. We move the \l{https://felgo.com/doc/felgo-scene/}{Scene} element from \c{qml/Main.qml} to the dedicated file \c{qml/GameScene.qml}. Here, we also add the background image as starting point. To display the image from \c{assets/img/background.png} we use the \l {https://doc.qt.io/archives/qt-5.15/qml-qtquick-image.html}{Image} component. The backround should fill the whole sceen, regardless of the screen resolution. We achieve this with \c{anchors.fill: gameWindowAnchorItem}. Furthermore, the background should not be stretched or distorted, so we set \c{fillMode: Image.PreserveAspectCrop}.
+	As a first step, we create the \c{GameScene} where all the game components come together. We move the \l{https://felgo.com/doc/felgo-scene/}{Scene} element from \c{qml/Main.qml} to the dedicated file \c{qml/GameScene.qml}. Here, we also add the background image as starting point. To display the image from \c{assets/img/background.png} we use the \l{https://doc.qt.io/archives/qt-5.15/qml-qtquick-image.html}{Image} component. The background should fill the whole screen, regardless of the resolution. We achieve this with \c{anchors.fill: gameWindowAnchorItem}. Furthermore, the background should not be stretched or distorted, so we set \c{fillMode: Image.PreserveAspectCrop}.
 
-	To indicate whether the game is running or not, we add a \c{gameRunning} property to the \c{GameScene}. This will later be used, for example, to pause the game if the player is hit by an enemy.
+	To indicate whether the game is running, we add a \c{gameRunning} property to the \c{GameScene}. This will later be used, for example, to pause the game if the player is hit by an enemy.
 
-	qml/Main.qml:
-	\qml
+	\c{qml/Main.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -94,7 +93,7 @@
 
 			// ...
 
-			activeScene: GameScene
+			activeScene: gameScene
 
 			// the size of the Window can be changed at runtime by pressing Ctrl (or Cmd on Mac) + the number keys 1-8
 			screenWidth: 960
@@ -103,10 +102,10 @@
 			// game scene where the actual game is located
 			GameScene {	}
 		}
-	\endqml
+	\endcode
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			id: gameScene
 
@@ -119,21 +118,21 @@
 				source: "../assets/img/background.png"
 			}
 		}
-	\endqml
+	\endcode
 
 	When running the project at this step, a screen with the background image will be displayed.
 	\image {background.png}
 
     \section1 Creating the player entity
 
-	The player is an independent entity that can shoot bullets towards the mouse click. We will center him at the bottom of the screen. As base element we are using \l {https://felgo.com/doc/felgo-entitybase/}{EntityBase}, as we will for all files created in the \c{qml/entities} directory. This is the base class of all Felgo entities and enables them to be controlled by the \l {https://felgo.com/doc/felgo-entitymanager/}{EntityManager}. 
+	The player is an independent entity that can shoot bullets toward a mouse click. We center the player at the bottom of the screen. As base element we use \l{https://felgo.com/doc/felgo-entitybase/}{EntityBase}, as we will for all files created in the \c{qml/entities} directory. This is the base class of all Felgo entities and enables them to be controlled by the \l{https://felgo.com/doc/felgo-entitymanager/}{EntityManager}. 
 
-	For a visually appealing presentation, we use a \l {https://felgo.com/doc/felgo-gamesprite/}{GameSprite} in combination with a \l {https://felgo.com/doc/felgo-gamespritesequence/}{GameSpriteSequence} to implement animations. Our image consist of 4 frames, which are used by the \c{GameSpriteSequence} to animate the player.
+	For a visually appealing presentation, we use a \l{https://felgo.com/doc/felgo-gamesprite/}{GameSprite} in combination with a \l{https://felgo.com/doc/felgo-gamespritesequence/}{GameSpriteSequence} to implement animations. Our image consists of 4 frames, which are used by the \c{GameSpriteSequence} to animate the player.
 
 	\image {player.png}
 
-	qml/entities/Player.qml:
-	\qml
+	\c{qml/entities/Player.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -159,12 +158,12 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	To actually make the player visible in the game, we need to add him to the \c{GameScene} directly below our background image. Here we also center it to the bottom of the screen:
+	To actually make the player visible in the game, we need to add it to the \c{GameScene} directly below our background image. Here we also center it to the bottom of the screen:
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			id: gameScene
 
@@ -180,22 +179,22 @@
 				y: gameWindowAnchorItem.height - height - 10
 			}
 		}
-	\endqml
+	\endcode
 
 	Now we will see the player positioned in the right place in our game.
 
-	\image {PlayerOnBackround.png}
+	\image {PlayerOnBackground.png}
 
-	\section1 Creating bullets and click based shooting
+	\section1 Creating bullets and click-based shooting
 
-	As next step we let the player shoot. Let's start with the implementation of \c{Bullet} and consider  what we need for it. First, we need to save the direction and speed of the bullet. To give it a nice look, we will use again a \c{GameSprite} with 4 frames:
+	In the next step, we implement shooting mechanics for the player. Let's start by creating the \c{Bullet} entity and defining the properties it needs. First, we need to save the direction and speed of the bullet. To give it a nice look, we will again use a \c{GameSprite} with 4 frames:
 
 	\image {bullet.png}
 
 	Similar to the \c{Player}, we add all of this to \c{Bullet}:
 
-	qml/entities/Bullet.qml:
-	\qml
+	\c{qml/entities/Bullet.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -226,12 +225,12 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	Now that we have all the information to move the bullet, we will implement two \l {https://felgo.com/doc/felgo-movementanimation/}{MovementAnimation}s - One for X and one for Y direction.
+	Now that we have all the information to move the bullet, we will implement two \l{https://felgo.com/doc/felgo-movementanimation/}{MovementAnimation}s - One for X and one for Y direction.
 
-	qml/entities/Bullet.qml:
-	\qml
+	\c{qml/entities/Bullet.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -257,12 +256,12 @@
 				running: gameScene.gameRunning
 			}
 		}
-	\endqml
+	\endcode
 
-	As soon as the bullet moves out of the screen, we will destroy it. So we will set the properties \c{minPropertyValue} and \c{maxPropertyValue} to remove the bullet in the \c{onLimitReached} method of the \c{MovementAnimation}.
+	As soon as the bullet moves off the screen, we will destroy it. So we will set the properties \c{minPropertyValue} and \c{maxPropertyValue} to remove the bullet in the \c{onLimitReached} method of the \c{MovementAnimation}.
 
-	qml/entities/Bullet.qml:
-	\qml
+	\c{qml/entities/Bullet.qml}:
+	\code
 		// bullet movement from player position towards mouse position
 		MovementAnimation {
 			// ...
@@ -283,12 +282,12 @@
 				removeEntity()
 			}
 		}
-	\endqml
+	\endcode
 
-	We now have bullets, but we need to spawn them when the players clicks on the screen. Fortunately we can use Felgo's \l {https://felgo.com/doc/qt/qml-qtquick-mousearea.html}{MouseArea} component to detect the mouse position and calculate the direction from player to mouse position. We will outsource the calculation to a seperate function in the \c{qml/GameScene.qml}, since we will need it later also for enemy creation.
+	We now have bullets, but we need to spawn them when the players clicks on the screen. Fortunately, we can use Felgo's \l{https://felgo.com/doc/qt/qml-qtquick-mousearea.html}{MouseArea} component to detect the mouse position and calculate the direction from player to mouse position. We will outsource the calculation to a separate function in the \c{qml/GameScene.qml}, since we will also need it later for enemy creation.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// player
 			// ...
@@ -301,7 +300,7 @@
 				dx /= len
 				dy /= len
 
-				// create propeerties for movement animation
+				// create properties for movement animation
 				// x/y: start position of bullet - player position moved slightly into direction of mouse click
 				// velocityX/Y: direction towards mouse position, used for moving the bullet
 				var newEntityProperties = {
@@ -314,12 +313,12 @@
 				return newEntityProperties
 			}
 		}
-	\endqml
+	\endcode
 
-	For the actual creation of the bullets, we use the \l {https://felgo.com/doc/felgo-entitymanager/}{EntityManager}, which manages all \c{EntityBase} objects of the \c{GameScene} and enables us to create \c{EntityBase} objects dynamically.
+	For the actual creation of the bullets, we use the \l{https://felgo.com/doc/felgo-entitymanager/}{EntityManager}, which manages all \c{EntityBase} objects of the \c{GameScene} and enables us to create \c{EntityBase} objects dynamically.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// player
 			// ...
@@ -334,7 +333,7 @@
 			MouseArea {
 				anchors.fill: gameWindowAnchorItem
 				onPressed: (mouse)=> {
-					// calculate parameters to move the bullet from the middle of the player towards to the mouse position
+					// calculate parameters to move the bullet from the middle of the player toward the mouse position
 					var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                         player.y + player.height/2, // y
                                                                         mouse.x, // destX
@@ -352,18 +351,18 @@
 				// ...
 			}
 		}
-	\endqml
+	\endcode
 
-	At the end of this section, you will see how the bullets are created after clicking on the screen, move towards the clich direction and are being destroyed when leaving the screen.
+	At the end of this section, you will see how the bullets are created after clicking on the screen, move towards the click direction and are being destroyed when leaving the screen.
 
 	\image {PlayerWithBullets.png}
 
-	\section1 Creating and spawning enemiy entities
+	\section1 Creating and spawning enemy entities
 
-	Now we need something that the bullets can hit. This is where our enemies come in! So lets implement \c{Enemy.qml}. This class will be very similar to our \c{Bullet} class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, as the game is over as soon as the player is hit. \c{qml/Enemy.qml} will look like following:
+	Now we need something that the bullets can hit. This is where our enemies come in! Let's create the \c{Enemy} entity. This class will be very similar to our \c{Bullet} class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, because the game ends once the player is hit.
 
-	qml/entities/Enemy.qml:
-	\qml
+	\c{qml/entities/Enemy.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
@@ -411,24 +410,24 @@
 				running: gameScene.gameRunning
 			}
 		}
-	\endqml
+	\endcode
 
-	As previously discussed, the enemies will appear randomly on the left, right or top of the screen. For the \c{MovementAnimation} parameters, we again use the function \c{calculateMovementParameters} method. This time, however, the spawning is triggered by a \l {https://felgo.com/doc/qt/qml-qtqml-timer.html}{Timer} component which we use to make the enemies appear periodically.
+	As previously discussed, the enemies will appear randomly on the left, right or top of the screen. For the \c{MovementAnimation} parameters, we again use the \c{calculateMovementParameters} function. This time, however, the spawning is triggered by a \l{https://felgo.com/doc/qt/qml-qtqml-timer.html}{Timer} component which we use to make the enemies appear periodically.
 
-	First, we use random numbers to calculate on which side the opponent will appear. Based on this X and Y position, as well as the player's position, we calculate the movement parameters. As before, enemy generation is handled by the /c{entityManager}.
+	First, we use random numbers to determine on which side the opponent will appear. Based on this X and Y positions, as well as the player's position, we calculate the movement parameters. As before, enemy generation is handled by the \c{entityManager}.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 
-			property int initEnemySpawnInterval: 500 // initial spawn intervall for enemies
+			property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
 
 			// ...
 			// trigger bullet shots when mouse was clicked
 			// ...
 
-			// spwaner for enemies
+			// spawner for enemies
 			Timer {
 				interval: initEnemySpawnInterval
 				running: gameRunning
@@ -450,7 +449,7 @@
 						y = Math.random() * gameWindowAnchorItem.height
 					}
 
-					// calculate parameters to move the bullet towards the mouse position
+					 // calculate parameters to move the enemy towards the player
 					var movementProperties = calculateMovementParameters(x, // x
                                                                         y, // y
                                                                         player.x + player.width/2, // destX
@@ -462,7 +461,7 @@
 			}
 			// ...
 		}
-	\endqml
+	\endcode
 
 	At the end of these steps, you will see enemies spawning and moving toward the player.
 
@@ -470,27 +469,27 @@
 
 	\section1 Handling collisions
 
-	We now have beatiful objects flying across the screen. However, there is currently no collision dedection. This is where Felgo's \l {https://felgo.com/doc/felgo-circlecollider/}{CircleCollider} comes in. We will add one for each of the \c{Player}, \c{Enemy} and \c{Bullet} classes. Using them we can automatically check whether objects intersect and react to it.
+	We now have beautiful objects flying across the screen. However, there is currently no collision detection. This is where Felgo's \l{https://felgo.com/doc/felgo-circlecollider/}{CircleCollider} comes in. We will add one for each of the \c{Player}, \c{Enemy} and \c{Bullet} classes. Using them, we can automatically check whether objects intersect and react to it.
 
-	First, we implement a \c{gameOver()} function in \c{GameScene}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectily stops all our \c{MovementAnimation}'s and pauses the game.
+	First, we implement a \c{gameOver()} function in \c{GameScene}, where we stop the game by setting the \c{gameRunning} property to \c{false}. This effectively stops all our \c{MovementAnimation}s and pauses the game.
 
-	qml/GameScenee.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
-			// spwaner for enemies
+			// spawner for enemies
 			// ...
 			function gameOver() {
 				// freeze the game and stop movement
 				gameRunning = false
 			}
 		}
-	\endqml
+	\endcode
 
-	Now, let's add the collision code for our entities. In addition we define in the \c{CicleCollider} which of them should collide with each other. The bullet may only collide with enemies, while enemies can collide with bullets or the player. For this, we use \c{categories} and \c{collidesWith} from our \c{CicleCollider}'s.
+	Now, let's add the collision code for our entities. In addition, we define in the \c{CircleCollider} which of them should collide with each other. The bullet may only collide with enemies, while enemies can collide with bullets or the player. For this, we use \c{categories} and \c{collidesWith} from our \c{CircleCollider}s.
 
-	qml/entities/Player.qml:
-	\qml
+	\c{qml/entities/Player.qml}:
+	\code
 		EntityBase {
 			// ...
 			// player image
@@ -498,7 +497,7 @@
 
 			// collider to check if enemy hits the player
 			CircleCollider {
-				radius: parent.height/2 // radius for collision dedection
+				radius: parent.height/2 // radius for collision detection
 				anchors.centerIn: parent // position centered at player
 				collisionTestingOnlyMode: true // player will not be affected by gravity or other applied physics forces
 
@@ -506,16 +505,16 @@
 				categories:   Circle.Category1
 				collidesWith: Circle.Category2
 
-				// collisision between player and enemy
+				// collision between player and enemy
 				fixture.onBeginContact: (other) => {
 					gameScene.gameOver()
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	qml/entities/Enemy.qml:
-	\qml
+	\c{qml/entities/Enemy.qml}:
+	\code
 		EntityBase {
 			// ...
 			// enemy movement towards player position
@@ -523,7 +522,7 @@
 
 			// collider to check if enemy reached the player or was hit by a bullet
 			CircleCollider {
-				radius: parent.height/2 // radius for collision dedection
+				radius: parent.height/2 // radius for collision detection
 				anchors.centerIn: parent // position centered at bullet
 				collisionTestingOnlyMode: true // enemy will not be affected by gravity or other applied physics forces
 
@@ -532,10 +531,10 @@
 				collidesWith: Circle.Category1 | Circle.Category3
 			}
 		}
-	\endqml
+	\endcode
 
-	qml/entities/Bullet.qml:
-	\qml
+	\c{qml/entities/Bullet.qml}:
+	\code
 		EntityBase {
 			// ...
 			// bullet image
@@ -543,7 +542,7 @@
 
 			// collider to check if bullet hits an enemy
 			CircleCollider {
-				radius: parent.height/2 // radius for collision dedection
+				radius: parent.height/2 // radius for collision detection
 				anchors.centerIn: parent // position centered at bullet
 				collisionTestingOnlyMode: true // bullet will not be affected by gravity or other applied physics forces
 
@@ -551,7 +550,7 @@
 				categories:   Circle.Category3
 				collidesWith: Circle.Category2
 
-				// collisision between bullet and enemy
+				// collision between bullet and enemy
 				fixture.onBeginContact: (other) => {
 					// remove hit enemy and shot bullet
 					other.getBody().target.removeEntity()
@@ -559,18 +558,18 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	After implementing all of these steps, we have finally a first working prototype! The enemies  appear and move, we can shoot and collisions are now detected, which ether delets git enemies / bullets or pause the game. We can confidently call this a big milestone!
+	After implementing all of these steps, we have finally a first working prototype! The enemies appear and move, we can shoot and collisions are now detected, which either removes hit enemies and bullets or pause the game. We can confidently call this a big milestone!
 
 	\section1 Game logic
 
-	We are going to make the game a bit more interesting. We are adding a score, increasing difficulty, a game reset and delay after the player was hit.
+	We are going to make the game a bit more interesting. We will add a a score, increasing difficulty, a game reset and a delay after the player was hit.
 
-	Let's start with adding a \c{resetGame()} function to our \c{GameScene} so that the game does not have to be restarted every time the player is hit. To do this, we need to delete all bullets and enemies, as well as setting the \c{gameRunning} property back to \c{true}.
+	Let's start by adding a \c{resetGame()} function to our \c{GameScene} so that the game does not have to be restarted every time the player is hit. To do this, we need to delete all bullets and enemies, and set the \c{gameRunning} property back to \c{true}.
 
-	qml/GameScenee.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 			function gameOver() {
@@ -585,12 +584,12 @@
 				gameRunning = true
 			}
 		}
-	\endqml
+	\endcode
 
-	To actually reset the game, we need to change the behaviour when the player clicks on the screen. While the game is running, bullets will continiously be created. However, when the game is paused, we will restart it when clicking the screen. Therefore, we will adjust the \c{onPressed} logic in our {MouseArea} slightly:
+	To actually reset the game, we need to change the behaviour when the player clicks on the screen. While the game is running, bullets will continuously be created. However, when the game is paused, we will restart it upon clicking the screen. Therefore, we will adjust the \c{onPressed} logic in our \c{MouseArea} slightly:
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 			property bool gameRunning: false // pause the game until player clicks
@@ -601,7 +600,7 @@
 				anchors.fill: gameWindowAnchorItem
 				onPressed: (mouse)=> {
 					if(gameRunning){
-						// calculate parameters to move the bullet from the middle of the player towards to the mouse position
+						// calculate parameters to move the bullet from the middle of the player toward the mouse position
 						var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                         player.y + player.height/2, // y
                                                                         mouse.x, // destX
@@ -619,12 +618,12 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	Now we have a working loop.	To make the game more interesting, we will add a \c{score} property to our \c{GameScene}, that increases for each enemy hit and resetted when the game restarts.
+	Now we have a working gameplay loop. Next, we add a \c{score} property to our \c{GameScene} that increases for each enemy hit and resets when the game restarts.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 			property real score: 0 // score dependent on how many enemies are shot
@@ -640,19 +639,19 @@
 				gameRunning = true
 			}
 		}
-	\endqml
+	\endcode
 
-	Increasing the score takes place in the \c{CicleCollider} of our \c{Bullet} class.
+	Increasing the score takes place in the \c{CircleCollider} of our \c{Bullet} class.
 
-	qml/entities/Bullet.qml:
-	\qml
+	\c{qml/entities/Bullet.qml}:
+	\code
 		EntityBase {
 			// ...
 
 			// collider to check if bullet hits an enemy
 			CircleCollider {
 				// ...
-				// collisision between bullet and enemy
+				// collision between bullet and enemy
 				fixture.onBeginContact: (other) => {
 					// increase score
 					gameScene.score++
@@ -662,27 +661,27 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	After playing the game for a while, you will notice that it is not that difficult to consistently use the same enemy spawn interval. To make the game a bit more exciting, we will increase the spwan intervall every 20 points the player collects. For simplicity, we implement this in the \c{Timer} component.
+	After playing the game for a while, you will notice that consistently using the same enemy spawn interval makes the game too predictable. To make the game a bit more exciting, we will increase the spawn interval every 20 points the player collects. For simplicity, we implement this in the \c{Timer} component.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
-			property int initEnemySpawnInterval: 500 // initial spawn intervall for enemies
-			property int minEnemySpawnInterval: 200 // fastest spawn intervall for enemies
-			property int difficultyStep: 20 // spawn intervall for enemies will be increased each difficultyStep score points
+			property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
+			property int minEnemySpawnInterval: 200 // fastest spawn interval for enemies
+			property int difficultyStep: 20 // spawn interval for enemies will be increased each difficultyStep score points
 			property int spawnAcceleration: 50 // acceleration for spawning enemies each difficultyStep
 			// ...
 
-			// spwaner for enemies
+			// spawner for enemies
 			Timer {
 				// ...
 
 				onTriggered: {
 					// ...
-					// calculate parameters to move the bullet towards the mouse position
+					// calculate parameters to move the enemy towards the mouse position
 					// ...
 
 					// calculate new spawn frequency (enemies spawn faster depending on score)
@@ -691,12 +690,12 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	One problem arises from the faster spawning enemies. It now happens quite frequently that the game over is accidentally dismissed by clicking. To prevent the game from restarting too quickly, we are adding a delay \c{Timer} that locks the \c{MouseArea} for a short time before the game can be restarted.
+	One problem arises from the faster spawning enemies. It now happens quite frequently that the game over screen is accidentally dismissed by clicking. To prevent the game from restarting too quickly, we are adding a delay \c{Timer} that temporarily locks the \c{MouseArea} before the game can be restarted.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 			property int delayTimerInterval: 500 // delay for game over to not accidentally dismiss the screen
@@ -707,7 +706,7 @@
 				anchors.fill: gameWindowAnchorItem
 				onPressed: (mouse)=> {
 					if(gameRunning){
-						// calculate parameters to move the bullet from the middle of the player towards to the mouse position
+						// calculate parameters to move the bullet from the middle of the player toward the mouse position
 						var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                         player.y + player.height/2, // y
                                                                         mouse.x, // destX
@@ -742,21 +741,21 @@
 				delayTimer.restart()
 			}
 		}
-	\endqml
+	\endcode
 
 	The game is now working perfectly. We can now restart it and increase the difficulty level depending on the number of enemies shot down.
 
     \section1 Game overlay
 
-	Here is one last thing we need to do. We want to display the score and the messages "Game Over" or "Pause". To keep it as simple as possible, we will implement a text overlay \c{OverlayText}. This class is very short and consists of primary and secondary text, as well as a highlight rectangle that separates the text from the game.
+	Finally, we want to display the score and the messages "Game Over" or "Pause". To keep it as simple as possible, we will implement a text overlay called \c{OverlayText}. This class is very short and consists of primary and secondary text, as well as a highlight rectangle that separates the text from the game.
 
-	qml/items/OverlayText.qml:
-	\qml
+	\c{qml/items/OverlayText.qml}:
+	\code
 		import Felgo 4.0
 		import QtQuick 2.0
 
 		Item {
-			z: 1 // forces objet to be drawn above the game elements
+			z: 1 // forces object to be drawn above the game elements
 
 			property alias primaryText: primaryText.text
 			property alias secondaryText: secondaryText.text
@@ -786,12 +785,12 @@
 				}
 			}
 		}
-	\endqml
+	\endcode
 
-	We will use the newly created \c{OverlayText} class in our \c{GameScene} and add one element for the score text and one for the game overlay and restart text.
+	We will use the newly created \c{OverlayText} class in our \c{GameScene} and add one element for the score text and another for the game overlay and restart text.
 
-	qml/GameScene.qml:
-	\qml
+	\c{qml/GameScene.qml}:
+	\code
 		Scene {
 			// ...
 
@@ -829,13 +828,13 @@
 				gameRunning = true
 			}
 		}
-	\endqml
+	\endcode
 
 	With these few changes, we now have a pause and a game over screen and we will actually see how many points we have collected.
 
 	\image {pause.png}
 	\image {gameOver.png}
 
-	That's it, now enjoy hunting for a new highscore!
+	That's it - now enjoy hunting for a new high score!
 
 */

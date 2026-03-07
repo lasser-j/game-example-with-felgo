@@ -59,7 +59,7 @@ EntityBase {
 
     // collider to check if bullet hits an enemy
     CircleCollider {
-      radius: parent.height/2 // radius for collision dedection
+      radius: parent.height/2 // radius for collision detection
       anchors.centerIn: parent // position centered at bullet
       collisionTestingOnlyMode: true // bullet will not be affected by gravity or other applied physics forces
 
@@ -67,7 +67,7 @@ EntityBase {
       categories:   Circle.Category3
       collidesWith: Circle.Category2
 
-      // collisision between bullet and enemy
+      // collision between bullet and enemy
       fixture.onBeginContact: (other) => {
           // increase score
           gameScene.score++

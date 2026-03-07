@@ -1,17 +1,22 @@
 body {
-    max-width: 950px;  /* prevents text or background stretching over the whole screen */
+    max-width: 1000px;  /* prevents text or background stretching over the whole screen */
     margin: 0 auto;    /* center content */
     padding: 2em;
     font-family: sans-serif;
     line-height: 1.6;
 }
 
-pre.qml {
+pre.cpp {
     background-color: #f4f4f4; /* gray background for code */
     border: 1px solid #ccc;
     padding: 10px;
     border-radius: 5px;
 }
+
+.cpp .code { font-family: monospace; background-color: #f0f0f0; padding: 5px; }
+.cpp .keyword { color: #0000ff; font-weight: bold; }
+.cpp .string { color: #a31515; }
+.cpp .comment { color: #008000; font-style: italic; }
 
 code {
     background-color: #f4f4f4; /* gray background for inline-code */

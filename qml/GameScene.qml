@@ -11,9 +11,9 @@ Scene {
 
     property real score: 0 // score dependent on how many enemies are shot
 
-    property int initEnemySpawnInterval: 500 // initial spawn intervall for enemies
-    property int minEnemySpawnInterval: 200 // fastest spawn intervall for enemies
-    property int difficultyStep: 20 // spawn intervall for enemies will be increased each difficultyStep score points
+    property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
+    property int minEnemySpawnInterval: 200 // fastest spawn interval for enemies
+    property int difficultyStep: 20 // spawn interval for enemies will be increased each difficultyStep score points
     property int spawnAcceleration: 50 // acceleration for spawning enemies each difficultyStep
 
     property int delayTimerInterval: 500 // delay for game over to not accidentally dismiss the screen
@@ -63,7 +63,7 @@ Scene {
         anchors.fill: gameWindowAnchorItem
         onPressed: (mouse)=> {
             if(gameRunning){
-                // calculate parameters to move the bullet from the middle of the player towards to the mouse position
+                // calculate parameters to move the bullet from the middle of the player toward the mouse position
                 var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                      player.y + player.height/2, // y
                                                                      mouse.x, // destX
@@ -103,7 +103,7 @@ Scene {
                                     y = Math.random() * gameWindowAnchorItem.height
             }
 
-            // calculate parameters to move the bullet towards the mouse position
+            // calculate parameters to move the enemy towards the player
             var movementProperties = calculateMovementParameters(x, // x
                                                                  y, // y
                                                                  player.x + player.width/2, // destX

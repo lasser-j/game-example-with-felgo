@@ -25,7 +25,7 @@ EntityBase {
 
     // collider to check if enemy hits the player
     CircleCollider {
-      radius: parent.height/2 // radius for collision dedection
+      radius: parent.height/2 // radius for collision detection
       anchors.centerIn: parent // position centered at player
       collisionTestingOnlyMode: true // player will not be affected by gravity or other applied physics forces
 
@@ -33,7 +33,7 @@ EntityBase {
       categories:   Circle.Category1
       collidesWith: Circle.Category2
 
-      // collisision between player and enemy
+      // collision between player and enemy
       fixture.onBeginContact: (other) => {
         gameScene.gameOver()
       }

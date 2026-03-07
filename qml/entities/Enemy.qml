@@ -47,7 +47,7 @@ EntityBase {
 
     // collider to check if enemy reached the player or was hit by a bullet
     CircleCollider {
-        radius: parent.height/2 // radius for collision dedection
+        radius: parent.height/2 // radius for collision detection
         anchors.centerIn: parent // position centered at bullet
         collisionTestingOnlyMode: true // enemy will not be affected by gravity or other applied physics forces
 
