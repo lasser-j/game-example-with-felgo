@@ -23,7 +23,6 @@ ui_*.h
 Makefile*
 *-build-*
 *build*
-*html*
 
 # QtCreator
 

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<!-- tutorial.qdoc -->
+  <title>How to build a simple game with Felgo | FelgoGameTutorial</title>
+<link rel="stylesheet" type="text/css" href="style/style.css" /></head>
+<body>
+<div class="sidebar">
+<div class="toc">
+<h3 id="toc">Contents</h3>
+<ul>
+<li class="level1"><a href="#tutorial-overview">Tutorial Overview</a></li>
+<li class="level1"><a href="#project-setup-and-structure">Project setup and structure</a></li>
+<li class="level1"><a href="#setting-up-the-gamewindow-and-scene">Setting up the GameWindow and Scene</a></li>
+<li class="level1"><a href="#creating-the-player-entity">Creating the player entity</a></li>
+<li class="level1"><a href="#creating-bullets-and-click-based-shooting">Creating bullets and click-based shooting</a></li>
+<li class="level1"><a href="#creating-and-spawning-enemy-entities">Creating and spawning enemy entities</a></li>
+<li class="level1"><a href="#handling-collisions">Handling collisions</a></li>
+<li class="level1"><a href="#game-logic">Game logic</a></li>
+<li class="level1"><a href="#game-overlay">Game overlay</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">How to build a simple game with Felgo</h1>
+<!-- $$$How-to-create-a-simple-game-with-Felgo-description -->
+<div class="descr" id="details">
+<p>Welcome to the step-by-step guide on creating a cross-platform game using <a href="https://felgo.com">Felgo</a>. In this tutorial, we will break down an example game called Invasion into its core components. The full source code of the game is available at <a href="https://github.com/lasser-j/game-example-with-felgo">GitHub</a>. Below you will find a small preview image to give you an impression of the game's look and feel.</p>
+<p class="centerAlign"><img src="images/preview.png" alt="" /></p><p>Here's a quick overview of the small shooter game we are going to build:</p>
+<ul>
+<li>Player positioned at the bottom of the screen</li>
+<li>Randomly spawning enemies</li>
+<li>Click-based shooting</li>
+<li>Score system</li>
+<li>Game Over</li>
+</ul>
+<p>This tutorial follows Felgo's best practices: modular entities, movement animations and collision detection.</p>
+<h2 id="tutorial-overview">Tutorial Overview</h2>
+<p>We will cover:</p>
+<ul>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#project-setup-and-structure">Project setup and structure</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#setting-up-the-gamewindow-and-scene">Setting up the GameWindow and Scene</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#creating-the-player-entity">Creating the player entity</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#creating-bullets-and-click-based-shooting">Creating bullets and click-based shooting</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#creating-and-spawning-enemy-entities">Creating and spawning enemy entities</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#handling-collisions">Handling collisions</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#game-logic">Game logic</a></li>
+<li><a href="how-to-create-a-simple-game-with-felgo.html#game-overlay">Game overlay</a></li>
+</ul>
+<h2 id="project-setup-and-structure">Project setup and structure</h2>
+<ol class="1" type="1"><li>Install Felgo and Qt Creator. You can speed this up by following <a href="https://felgo.com/doc/felgo-get-started-games/">Felgo's tutorial</a></li>
+<li>Open Qt Creator and create a new empty Felgo Games project, naming it Invasion</li>
+<li>Create the following directory structure<pre class="cpp" translate="no">qml<span class="operator">/</span>
+    GameScene<span class="operator">.</span>qml
+    entities<span class="operator">/</span>
+        Player<span class="operator">.</span>qml
+        Enemy<span class="operator">.</span>qml
+        Bullet<span class="operator">.</span>qml
+    items<span class="operator">/</span>
+        OverlayText<span class="operator">.</span>qml
+assets<span class="operator">/</span>
+    img<span class="operator">/</span>
+        background<span class="operator">.</span>png
+        player<span class="operator">.</span>png
+        enemy<span class="operator">.</span>png
+        bullet<span class="operator">.</span>png</pre>
+<p>If you do not want to use or create your own images, you can simply reference the image at <a href="https://github.com/lasser-j/game-example-with-felgo/tree/main/assets/img">GitHub</a>.</p>
+</li>
+</ol>
+<p>After setting up the project structure and creating the necessary files and directories, we will clean up the template project a bit. Open <code translate="no">qml/Main.qml</code> and remove all content except for the basic scene structure:</p>
+<p><code translate="no">qml/Main.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">GameWindow</span> {
+        <span class="name">id</span>: <span class="name">gameWindow</span>
+
+        <span class="comment">// ...</span>
+
+        <span class="name">activeScene</span>: <span class="name">scene</span>
+
+        <span class="comment">// ...</span>
+        <span class="name">screenWidth</span>: <span class="number">960</span>
+        <span class="name">screenHeight</span>: <span class="number">640</span>
+
+        <span class="type">Scene</span> { }
+}</pre>
+<h2 id="setting-up-the-gamewindow-and-scene">Setting up the GameWindow and Scene</h2>
+<p>As a first step, we create the <code translate="no">GameScene</code> where all the game components come together. We move the <a href="https://felgo.com/doc/felgo-scene/">Scene</a> element from <code translate="no">qml/Main.qml</code> to the dedicated file <code translate="no">qml/GameScene.qml</code>. Here, we also add the background image as starting point. To display the image from <code translate="no">assets/img/background.png</code> we use the <a href="https://doc.qt.io/archives/qt-5.15/qml-qtquick-image.html">Image</a> component. The background should fill the whole screen, regardless of the resolution. We achieve this with <code translate="no">anchors.fill: gameWindowAnchorItem</code>. Furthermore, the background should not be stretched or distorted, so we set <code translate="no">fillMode: Image.PreserveAspectCrop</code>.</p>
+<p>To indicate whether the game is running, we add a <code translate="no">gameRunning</code> property to the <code translate="no">GameScene</code>. This will later be used, for example, to pause the game if the player is hit by an enemy.</p>
+<p><code translate="no">qml/Main.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">GameWindow</span> {
+        <span class="name">id</span>: <span class="name">gameWindow</span>
+
+        <span class="comment">// ...</span>
+
+        <span class="name">activeScene</span>: <span class="name">gameScene</span>
+
+        <span class="comment">// the size of the Window can be changed at runtime by pressing Ctrl (or Cmd on Mac) + the number keys 1-8</span>
+        <span class="name">screenWidth</span>: <span class="number">960</span>
+        <span class="name">screenHeight</span>: <span class="number">640</span>
+
+        <span class="comment">// game scene where the actual game is located</span>
+        <span class="type">GameScene</span> {     }
+}</pre>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="name">id</span>: <span class="name">gameScene</span>
+
+        property <span class="type">bool</span> <span class="name">gameRunning</span>: <span class="number">true</span>
+
+        <span class="comment">// background image</span>
+        <span class="type">Image</span> {
+                <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">fillMode</span>: <span class="name">Image</span>.<span class="name">PreserveAspectCrop</span>
+                <span class="name">source</span>: <span class="string">&quot;../assets/img/background.png&quot;</span>
+        }
+}</pre>
+<p>When running the project at this step, a screen with the background image will be displayed.</p>
+<p class="centerAlign"><img src="images/background.png" alt="" /></p><h2 id="creating-the-player-entity">Creating the player entity</h2>
+<p>The player is an independent entity that can shoot bullets toward a mouse click. We center the player at the bottom of the screen. As base element we use <a href="https://felgo.com/doc/felgo-entitybase/">EntityBase</a>, as we will for all files created in the <code translate="no">qml/entities</code> directory. This is the base class of all Felgo entities and enables them to be controlled by the <a href="https://felgo.com/doc/felgo-entitymanager/">EntityManager</a>.</p>
+<p>For a visually appealing presentation, we use a <a href="https://felgo.com/doc/felgo-gamesprite/">GameSprite</a> in combination with a <a href="https://felgo.com/doc/felgo-gamespritesequence/">GameSpriteSequence</a> to implement animations. Our image consists of 4 frames, which are used by the <code translate="no">GameSpriteSequence</code> to animate the player.</p>
+<p class="centerAlign"><img src="images/player.png" alt="" /></p><p><code translate="no">qml/entities/Player.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">EntityBase</span> {
+        <span class="name">id</span>: <span class="name">player</span>
+        <span class="name">entityType</span>: <span class="string">&quot;player&quot;</span>
+
+        <span class="comment">// player size</span>
+        <span class="name">width</span>: <span class="name">spriteSequence</span>.<span class="name">width</span>
+        <span class="name">height</span>: <span class="name">spriteSequence</span>.<span class="name">height</span>
+
+        <span class="comment">// player image</span>
+        <span class="type">GameSpriteSequence</span> {
+                <span class="name">id</span>: <span class="name">spriteSequence</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+                <span class="type">GameSprite</span> {
+                        <span class="name">frameCount</span>: <span class="number">4</span>
+                        <span class="name">frameRate</span>: <span class="number">1</span>
+
+                        <span class="name">frameWidth</span>: <span class="number">39</span>
+                        <span class="name">frameHeight</span>: <span class="number">39</span>
+                        <span class="name">source</span>: <span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;../../assets/img/player.png&quot;</span>)
+                }
+        }
+}</pre>
+<p>To actually make the player visible in the game, we need to add it to the <code translate="no">GameScene</code> directly below our background image. Here we also center it to the bottom of the screen:</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="name">id</span>: <span class="name">gameScene</span>
+
+        property <span class="type">bool</span> <span class="name">gameRunning</span>: <span class="number">true</span>
+
+        <span class="comment">// background image</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// player</span>
+        <span class="type">Player</span> {
+                <span class="name">id</span>: <span class="name">player</span>
+                <span class="name">anchors</span>.horizontalCenter: <span class="name">gameWindowAnchorItem</span>.<span class="name">horizontalCenter</span>
+                <span class="name">y</span>: <span class="name">gameWindowAnchorItem</span>.<span class="name">height</span> <span class="operator">-</span> <span class="name">height</span> <span class="operator">-</span> <span class="number">10</span>
+        }
+}</pre>
+<p>Now we will see the player positioned in the right place in our game.</p>
+<p class="centerAlign"><img src="images/PlayerOnBackground.png" alt="" /></p><h2 id="creating-bullets-and-click-based-shooting">Creating bullets and click-based shooting</h2>
+<p>In the next step, we implement shooting mechanics for the player. Let's start by creating the <code translate="no">Bullet</code> entity and defining the properties it needs. First, we need to save the direction and speed of the bullet. To give it a nice look, we will again use a <code translate="no">GameSprite</code> with 4 frames:</p>
+<p class="centerAlign"><img src="images/bullet.png" alt="" /></p><p>Similar to the <code translate="no">Player</code>, we add all of this to <code translate="no">Bullet</code>:</p>
+<p><code translate="no">qml/entities/Bullet.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">EntityBase</span> {
+        <span class="name">id</span>: <span class="name">bullet</span>
+        <span class="name">entityType</span>: <span class="string">&quot;bullet&quot;</span>
+
+        <span class="comment">// bullet size</span>
+        <span class="name">width</span>: <span class="name">spriteSequence</span>.<span class="name">width</span>
+        <span class="name">height</span>: <span class="name">spriteSequence</span>.<span class="name">height</span>
+
+        <span class="comment">// direction and speed for bullet</span>
+        property <span class="type">real</span> <span class="name">velocityX</span>: <span class="number">0</span>
+        property <span class="type">real</span> <span class="name">velocityY</span>: <span class="number">0</span>
+        property <span class="type">real</span> <span class="name">speed</span>: <span class="number">50</span>
+
+        <span class="comment">// bullet image</span>
+        <span class="type">GameSpriteSequence</span> {
+                <span class="name">id</span>: <span class="name">spriteSequence</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+                <span class="type">GameSprite</span> {
+                        <span class="name">frameCount</span>: <span class="number">4</span>
+                        <span class="name">frameRate</span>: <span class="number">15</span>
+
+                        <span class="name">frameWidth</span>: <span class="number">10</span>
+                        <span class="name">frameHeight</span>: <span class="number">10</span>
+                        <span class="name">source</span>: <span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;../../assets/img/bullet.png&quot;</span>)
+                }
+        }
+}</pre>
+<p>Now that we have all the information to move the bullet, we will implement two <a href="https://felgo.com/doc/felgo-movementanimation/">MovementAnimation</a>s - One for X and one for Y direction.</p>
+<p><code translate="no">qml/entities/Bullet.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+        <span class="comment">// bullet image</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// bullet movement from player position towards mouse position</span>
+        <span class="type">MovementAnimation</span> {
+                <span class="name">id</span>: <span class="name">movementX</span>
+                <span class="name">target</span>: <span class="name">parent</span>
+                <span class="name">property</span>: <span class="string">&quot;x&quot;</span>
+                <span class="name">velocity</span>: <span class="name">velocityX</span> <span class="operator">*</span> <span class="name">speed</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+        }
+
+        <span class="type">MovementAnimation</span> {
+                <span class="name">id</span>: <span class="name">movementY</span>
+                <span class="name">target</span>: <span class="name">parent</span>
+                <span class="name">property</span>: <span class="string">&quot;y&quot;</span>
+                <span class="name">velocity</span>: <span class="name">velocityY</span> <span class="operator">*</span> <span class="name">speed</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+        }
+}</pre>
+<p>As soon as the bullet moves off the screen, we will destroy it. So we will set the properties <code translate="no">minPropertyValue</code> and <code translate="no">maxPropertyValue</code> to remove the bullet in the <code translate="no">onLimitReached</code> method of the <code translate="no">MovementAnimation</code>.</p>
+<p><code translate="no">qml/entities/Bullet.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="comment">// bullet movement from player position towards mouse position</span>
+MovementAnimation {
+        <span class="comment">// ...</span>
+        minPropertyValue: <span class="operator">-</span>parent<span class="operator">.</span>width
+        maxPropertyValue: gameScene<span class="operator">.</span>gameWindowAnchorItem<span class="operator">.</span>width
+
+        onLimitReached: {
+                removeEntity()
+        }
+}
+
+MovementAnimation {
+        <span class="comment">// ...</span>
+        minPropertyValue: <span class="operator">-</span>parent<span class="operator">.</span>height
+        maxPropertyValue: gameScene<span class="operator">.</span>gameWindowAnchorItem<span class="operator">.</span>height
+
+        onLimitReached: {
+                removeEntity()
+        }
+}</pre>
+<p>We now have bullets, but we need to spawn them when the players clicks on the screen. Fortunately, we can use Felgo's <a href="https://felgo.com/doc/qt/qml-qtquick-mousearea.html">MouseArea</a> component to detect the mouse position and calculate the direction from player to mouse position. We will outsource the calculation to a separate function in the <code translate="no">qml/GameScene.qml</code>, since we will also need it later for enemy creation.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// player</span>
+        <span class="comment">// ...</span>
+
+        <span class="keyword">function</span> <span class="name">calculateMovementParameters</span>(x, y, destX, destY){
+                <span class="comment">// calculate direction from origin towards destination</span>
+                var dx = <span class="name">destX</span> <span class="operator">-</span> <span class="name">x</span>
+                var dy = <span class="name">destY</span> <span class="operator">-</span> <span class="name">y</span>
+                var len = <span class="name">Math</span>.<span class="name">sqrt</span>(<span class="name">dx</span><span class="operator">*</span><span class="name">dx</span> <span class="operator">+</span> <span class="name">dy</span><span class="operator">*</span><span class="name">dy</span>)
+                <span class="name">dx</span> <span class="operator">/=</span> <span class="name">len</span>
+                <span class="name">dy</span> <span class="operator">/=</span> <span class="name">len</span>
+
+                <span class="comment">// create properties for movement animation</span>
+                <span class="comment">// x/y: start position of bullet - player position moved slightly into direction of mouse click</span>
+                <span class="comment">// velocityX/Y: direction towards mouse position, used for moving the bullet</span>
+                var newEntityProperties = {
+                        x: <span class="name">x</span>,
+                        y: <span class="name">y</span>,
+                        velocityX: <span class="name">dx</span>,
+                        velocityY: <span class="name">dy</span>
+                }
+
+                <span class="keyword">return</span> <span class="name">newEntityProperties</span>
+        }
+}</pre>
+<p>For the actual creation of the bullets, we use the <a href="https://felgo.com/doc/felgo-entitymanager/">EntityManager</a>, which manages all <code translate="no">EntityBase</code> objects of the <code translate="no">GameScene</code> and enables us to create <code translate="no">EntityBase</code> objects dynamically.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// player</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// create bullets at runtime</span>
+        <span class="type">EntityManager</span> {
+        <span class="name">id</span>: <span class="name">entityManager</span>
+        <span class="name">entityContainer</span>: <span class="name">gameScene</span>
+        }
+
+        <span class="comment">// trigger bullet shots when mouse was clicked</span>
+        <span class="type">MouseArea</span> {
+                <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">onPressed</span>: (<span class="keyword"></span>mouse)=&gt; {
+                        <span class="comment">// calculate parameters to move the bullet from the middle of the player toward the mouse position</span>
+                        var movementProperties = <span class="name">calculateMovementParameters</span>(<span class="name">player</span>.<span class="name">x</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span><span class="operator">/</span><span class="number">2</span>,  <span class="comment">// x</span>
+                                                        <span class="name">player</span>.<span class="name">y</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span>, <span class="comment">// y</span>
+                                                        <span class="name">mouse</span>.<span class="name">x</span>, <span class="comment">// destX</span>
+                                                        <span class="name">mouse</span>.<span class="name">y</span>  <span class="comment">// destY</span>
+                                                        )
+                        <span class="comment">// move bullet a bit outside of the player to not overlap with it</span>
+                        <span class="name">movementProperties</span>.<span class="name">x</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityX</span> <span class="operator">-</span> <span class="number">5</span>
+                        <span class="name">movementProperties</span>.<span class="name">y</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityY</span> <span class="operator">-</span> <span class="number">5</span>
+
+                        <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                }
+        }
+
+        <span class="keyword">function</span> <span class="name">calculateMovementParameters</span>(x, y, destX, destY){
+                <span class="comment">// ...</span>
+        }
+}</pre>
+<p>At the end of this section, you will see how the bullets are created after clicking on the screen, move towards the click direction and are being destroyed when leaving the screen.</p>
+<p class="centerAlign"><img src="images/PlayerWithBullets.png" alt="" /></p><h2 id="creating-and-spawning-enemy-entities">Creating and spawning enemy entities</h2>
+<p>Now we need something that the bullets can hit. This is where our enemies come in! Let's create the <code translate="no">Enemy</code> entity. This class will be very similar to our <code translate="no">Bullet</code> class. The main difference is that we do not need to check if the enemy reaches the edges of the screen, because the game ends once the player is hit.</p>
+<p><code translate="no">qml/entities/Enemy.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">EntityBase</span> {
+        <span class="name">id</span>: <span class="name">enemy</span>
+        <span class="name">entityType</span>: <span class="string">&quot;enemy&quot;</span>
+
+        <span class="comment">// enemy size</span>
+        <span class="name">width</span>: <span class="name">spriteSequence</span>.<span class="name">width</span>
+        <span class="name">height</span>: <span class="name">spriteSequence</span>.<span class="name">height</span>
+
+        <span class="comment">// direction and speed for enemy</span>
+        property <span class="type">real</span> <span class="name">velocityX</span>: <span class="number">0</span>
+        property <span class="type">real</span> <span class="name">velocityY</span>: <span class="number">0</span>
+        property <span class="type">real</span> <span class="name">speed</span>: <span class="number">25</span>
+
+        <span class="comment">// enemy image</span>
+        <span class="type">GameSpriteSequence</span> {
+                <span class="name">id</span>: <span class="name">spriteSequence</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+                <span class="type">GameSprite</span> {
+                        <span class="name">frameCount</span>: <span class="number">2</span>
+                        <span class="name">frameRate</span>: <span class="number">5</span>
+
+                        <span class="name">frameWidth</span>: <span class="number">39</span>
+                        <span class="name">frameHeight</span>: <span class="number">39</span>
+                        <span class="name">source</span>: <span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;../../assets/img/enemy.png&quot;</span>)
+                }
+        }
+
+        <span class="comment">// enemy movement towards player position</span>
+        <span class="type">MovementAnimation</span> {
+                <span class="name">id</span>: <span class="name">movementX</span>
+                <span class="name">target</span>: <span class="name">parent</span>
+                <span class="name">property</span>: <span class="string">&quot;x&quot;</span>
+                <span class="name">velocity</span>: <span class="name">velocityX</span> <span class="operator">*</span> <span class="name">speed</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+        }
+
+        <span class="type">MovementAnimation</span> {
+                <span class="name">id</span>: <span class="name">movementY</span>
+                <span class="name">target</span>: <span class="name">parent</span>
+                <span class="name">property</span>: <span class="string">&quot;y&quot;</span>
+                <span class="name">velocity</span>: <span class="name">velocityY</span> <span class="operator">*</span> <span class="name">speed</span>
+                <span class="name">running</span>: <span class="name">gameScene</span>.<span class="name">gameRunning</span>
+        }
+}</pre>
+<p>As previously discussed, the enemies will appear randomly on the left, right or top of the screen. For the <code translate="no">MovementAnimation</code> parameters, we again use the <code translate="no">calculateMovementParameters</code> function. This time, however, the spawning is triggered by a <a href="https://felgo.com/doc/qt/qml-qtqml-timer.html">Timer</a> component which we use to make the enemies appear periodically.</p>
+<p>First, we use random numbers to determine on which side the opponent will appear. Based on this X and Y positions, as well as the player's position, we calculate the movement parameters. As before, enemy generation is handled by the <code translate="no">entityManager</code>.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+
+        property <span class="type">int</span> <span class="name">initEnemySpawnInterval</span>: <span class="number">500</span> <span class="comment">// initial spawn interval for enemies</span>
+
+        <span class="comment">// ...</span>
+        <span class="comment">// trigger bullet shots when mouse was clicked</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// spawner for enemies</span>
+        <span class="type">Timer</span> {
+                <span class="name">interval</span>: <span class="name">initEnemySpawnInterval</span>
+                <span class="name">running</span>: <span class="name">gameRunning</span>
+                <span class="name">repeat</span>: <span class="number">true</span>
+
+                <span class="name">onTriggered</span>: {
+                        <span class="comment">// enemies should appear on a random side, except at the bottom</span>
+                        var side = <span class="name">Math</span>.<span class="name">floor</span>(<span class="name">Math</span>.<span class="name">random</span>() <span class="operator">*</span> <span class="number">3</span>)
+                        var x, y
+
+                        <span class="keyword">if</span> (<span class="name">side</span> <span class="operator">===</span> <span class="number">0</span>) { <span class="comment">// top</span>
+                                <span class="name">x</span> <span class="operator">=</span> <span class="name">Math</span>.<span class="name">random</span>() <span class="operator">*</span> <span class="name">gameWindowAnchorItem</span>.<span class="name">width</span>
+                                <span class="name">y</span> <span class="operator">=</span> -<span class="name">player</span>.<span class="name">width</span>
+                        } <span class="keyword">else</span> <span class="keyword">if</span> (<span class="name">side</span> <span class="operator">===</span> <span class="number">1</span>) { <span class="comment">// left</span>
+                                <span class="name">x</span> <span class="operator">=</span> -<span class="name">player</span>.<span class="name">width</span>
+                                <span class="name">y</span> <span class="operator">=</span> <span class="name">Math</span>.<span class="name">random</span>() <span class="operator">*</span> <span class="name">gameWindowAnchorItem</span>.<span class="name">height</span>
+                        } <span class="keyword">else</span> { <span class="comment">// right</span>
+                                <span class="name">x</span> <span class="operator">=</span> <span class="name">gameWindowAnchorItem</span>.<span class="name">width</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span>
+                                <span class="name">y</span> <span class="operator">=</span> <span class="name">Math</span>.<span class="name">random</span>() <span class="operator">*</span> <span class="name">gameWindowAnchorItem</span>.<span class="name">height</span>
+                        }
+
+                         <span class="comment">// calculate parameters to move the enemy towards the player</span>
+                        var movementProperties = <span class="name">calculateMovementParameters</span>(<span class="name">x</span>, <span class="comment">// x</span>
+                                                        <span class="name">y</span>, <span class="comment">// y</span>
+                                                        <span class="name">player</span>.<span class="name">x</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span><span class="operator">/</span><span class="number">2</span>, <span class="comment">// destX</span>
+                                                        <span class="name">player</span>.<span class="name">y</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span> <span class="comment">// destY</span>
+                                                        )
+
+                        <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Enemy.qml&quot;</span>), <span class="name">movementProperties</span>)
+                }
+        }
+        <span class="comment">// ...</span>
+}</pre>
+<p>At the end of these steps, you will see enemies spawning and moving toward the player.</p>
+<p class="centerAlign"><img src="images/PlayerBulletsEnemies.png" alt="" /></p><h2 id="handling-collisions">Handling collisions</h2>
+<p>We now have beautiful objects flying across the screen. However, there is currently no collision detection. This is where Felgo's <a href="https://felgo.com/doc/felgo-circlecollider/">CircleCollider</a> comes in. We will add one for each of the <code translate="no">Player</code>, <code translate="no">Enemy</code> and <code translate="no">Bullet</code> classes. Using them, we can automatically check whether objects intersect and react to it.</p>
+<p>First, we implement a <code translate="no">gameOver()</code> function in <code translate="no">GameScene</code>, where we stop the game by setting the <code translate="no">gameRunning</code> property to <code translate="no">false</code>. This effectively stops all our <code translate="no">MovementAnimation</code>s and pauses the game. We also need to add the <a href="https://felgo.com/doc/felgo-physicsworld/">PhysicsWorld</a> component, which allows Felgo's collision objects to interact with each other.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        <span class="type">PhysicsWorld</span> { } <span class="comment">// no need to set gravity, the collider is not physics-based</span>
+        <span class="comment">// ...</span>
+        <span class="comment">// spawner for enemies</span>
+        <span class="comment">// ...</span>
+        <span class="keyword">function</span> <span class="name">gameOver</span>() {
+                <span class="comment">// freeze the game and stop movement</span>
+                <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">false</span>
+        }
+}</pre>
+<p>Now, let's add the collision code for our entities. In addition, we define in the <code translate="no">CircleCollider</code> which of them should collide with each other. The bullet may only collide with enemies, while enemies can collide with bullets or the player. For this, we use <code translate="no">categories</code> and <code translate="no">collidesWith</code> from our <code translate="no">CircleCollider</code>s.</p>
+<p><code translate="no">qml/entities/Player.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+        <span class="comment">// player image</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// collider to check if enemy hits the player</span>
+        <span class="type">CircleCollider</span> {
+                <span class="name">radius</span>: <span class="name">parent</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span> <span class="comment">// radius for collision detection</span>
+                <span class="name">anchors</span>.centerIn: <span class="name">parent</span> <span class="comment">// position centered at player</span>
+                <span class="name">collisionTestingOnlyMode</span>: <span class="number">true</span> <span class="comment">// player will not be affected by gravity or other applied physics forces</span>
+
+                <span class="comment">// player should only collide with enemy</span>
+                <span class="name">categories</span>:   <span class="name">Circle</span>.<span class="name">Category1</span>
+                <span class="name">collidesWith</span>: <span class="name">Circle</span>.<span class="name">Category2</span>
+
+                <span class="comment">// collision between player and enemy</span>
+                <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
+                        <span class="name">gameScene</span>.<span class="name">gameOver</span>()
+                }
+        }
+}</pre>
+<p><code translate="no">qml/entities/Enemy.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+        <span class="comment">// enemy movement towards player position</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// collider to check if enemy reached the player or was hit by a bullet</span>
+        <span class="type">CircleCollider</span> {
+                <span class="name">radius</span>: <span class="name">parent</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span> <span class="comment">// radius for collision detection</span>
+                <span class="name">anchors</span>.centerIn: <span class="name">parent</span> <span class="comment">// position centered at bullet</span>
+                <span class="name">collisionTestingOnlyMode</span>: <span class="number">true</span> <span class="comment">// enemy will not be affected by gravity or other applied physics forces</span>
+
+                <span class="comment">// enemy should collide with player and bullet</span>
+                <span class="name">categories</span>:   <span class="name">Circle</span>.<span class="name">Category2</span>
+                <span class="name">collidesWith</span>: <span class="name">Circle</span>.<span class="name">Category1</span> <span class="operator">|</span> <span class="name">Circle</span>.<span class="name">Category3</span>
+        }
+}</pre>
+<p><code translate="no">qml/entities/Bullet.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+        <span class="comment">// bullet image</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// collider to check if bullet hits an enemy</span>
+        <span class="type">CircleCollider</span> {
+                <span class="name">radius</span>: <span class="name">parent</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span> <span class="comment">// radius for collision detection</span>
+                <span class="name">anchors</span>.centerIn: <span class="name">parent</span> <span class="comment">// position centered at bullet</span>
+                <span class="name">collisionTestingOnlyMode</span>: <span class="number">true</span> <span class="comment">// bullet will not be affected by gravity or other applied physics forces</span>
+
+                <span class="comment">// bullet should only collide with enemy</span>
+                <span class="name">categories</span>:   <span class="name">Circle</span>.<span class="name">Category3</span>
+                <span class="name">collidesWith</span>: <span class="name">Circle</span>.<span class="name">Category2</span>
+
+                <span class="comment">// collision between bullet and enemy</span>
+                <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
+                        <span class="comment">// remove hit enemy and shot bullet</span>
+                        <span class="name">other</span>.<span class="name">getBody</span>().<span class="name">target</span>.<span class="name">removeEntity</span>()
+                        <span class="name">removeEntity</span>()
+                }
+        }
+}</pre>
+<p>After implementing all of these steps, we have finally a first working prototype! The enemies appear and move, we can shoot and collisions are now detected, which either removes hit enemies and bullets or pause the game. We can confidently call this a big milestone!</p>
+<h2 id="game-logic">Game logic</h2>
+<p>We are going to make the game a bit more interesting. We will add a a score, increasing difficulty, a game reset and a delay after the player was hit.</p>
+<p>Let's start by adding a <code translate="no">resetGame()</code> function to our <code translate="no">GameScene</code> so that the game does not have to be restarted every time the player is hit. To do this, we need to delete all bullets and enemies, and set the <code translate="no">gameRunning</code> property back to <code translate="no">true</code>.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        <span class="keyword">function</span> <span class="name">gameOver</span>() {
+                <span class="comment">// ...</span>
+        }
+
+        <span class="keyword">function</span> <span class="name">resetGame</span>() {
+                <span class="comment">// delete all enemies and bullets</span>
+                <span class="name">entityManager</span>.<span class="name">removeEntitiesByFilter</span>([<span class="string">&quot;enemy&quot;</span>,<span class="string">&quot;bullet&quot;</span>])
+
+                <span class="comment">// (re)start game</span>
+                <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">true</span>
+        }
+}</pre>
+<p>To actually reset the game, we need to change the behaviour when the player clicks on the screen. While the game is running, bullets will continuously be created. However, when the game is paused, we will restart it upon clicking the screen. Therefore, we will adjust the <code translate="no">onPressed</code> logic in our <code translate="no">MouseArea</code> slightly:</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        property <span class="type">bool</span> <span class="name">gameRunning</span>: <span class="number">false</span> <span class="comment">// pause the game until player clicks</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// trigger bullet shots when mouse was clicked</span>
+        <span class="type">MouseArea</span> {
+                <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">onPressed</span>: (<span class="keyword"></span>mouse)=&gt; {
+                        <span class="keyword">if</span>(<span class="name">gameRunning</span>){
+                                <span class="comment">// calculate parameters to move the bullet from the middle of the player toward the mouse position</span>
+                                var movementProperties = <span class="name">calculateMovementParameters</span>(<span class="name">player</span>.<span class="name">x</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span><span class="operator">/</span><span class="number">2</span>,  <span class="comment">// x</span>
+                                                        <span class="name">player</span>.<span class="name">y</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span>, <span class="comment">// y</span>
+                                                        <span class="name">mouse</span>.<span class="name">x</span>, <span class="comment">// destX</span>
+                                                        <span class="name">mouse</span>.<span class="name">y</span>  <span class="comment">// destY</span>
+                                                        )
+                                <span class="comment">// move bullet a bit outside of the player to not overlap with it</span>
+                                <span class="name">movementProperties</span>.<span class="name">x</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityX</span> <span class="operator">-</span> <span class="number">5</span>
+                                <span class="name">movementProperties</span>.<span class="name">y</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityY</span> <span class="operator">-</span> <span class="number">5</span>
+
+                                <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                        }
+                        <span class="keyword">else</span> { <span class="comment">// reset the game</span>
+                                <span class="name">resetGame</span>()
+                        }
+                }
+        }
+}</pre>
+<p>Now we have a working gameplay loop. Next, we add a <code translate="no">score</code> property to our <code translate="no">GameScene</code> that increases for each enemy hit and resets when the game restarts.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        property <span class="type">real</span> <span class="name">score</span>: <span class="number">0</span> <span class="comment">// score dependent on how many enemies are shot</span>
+        <span class="comment">// ...</span>
+
+        <span class="keyword">function</span> <span class="name">resetGame</span>() {
+                <span class="comment">// delete all enemies and bullets</span>
+                <span class="name">entityManager</span>.<span class="name">removeEntitiesByFilter</span>([<span class="string">&quot;enemy&quot;</span>,<span class="string">&quot;bullet&quot;</span>])
+
+                <span class="name">score</span> <span class="operator">=</span> <span class="number">0</span> <span class="comment">// reset score</span>
+
+                <span class="comment">// (re)start game</span>
+                <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">true</span>
+        }
+}</pre>
+<p>Increasing the score takes place in the <code translate="no">CircleCollider</code> of our <code translate="no">Bullet</code> class.</p>
+<p><code translate="no">qml/entities/Bullet.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+
+        <span class="comment">// collider to check if bullet hits an enemy</span>
+        <span class="type">CircleCollider</span> {
+                <span class="comment">// ...</span>
+                <span class="comment">// collision between bullet and enemy</span>
+                <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
+                        <span class="comment">// increase score</span>
+                        gameScene.score++
+                        <span class="comment">// remove hit enemy and shot bullet</span>
+                        <span class="name">other</span>.<span class="name">getBody</span>().<span class="name">target</span>.<span class="name">removeEntity</span>()
+                        <span class="name">removeEntity</span>()
+                }
+        }
+}</pre>
+<p>After playing the game for a while, you will notice that consistently using the same enemy spawn interval makes the game too predictable. To make the game a bit more exciting, we will increase the spawn interval every 20 points the player collects. For simplicity, we implement this in the <code translate="no">Timer</code> component.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        property <span class="type">int</span> <span class="name">initEnemySpawnInterval</span>: <span class="number">500</span> <span class="comment">// initial spawn interval for enemies</span>
+        property <span class="type">int</span> <span class="name">minEnemySpawnInterval</span>: <span class="number">200</span> <span class="comment">// fastest spawn interval for enemies</span>
+        property <span class="type">int</span> <span class="name">difficultyStep</span>: <span class="number">20</span> <span class="comment">// spawn interval for enemies will be increased each difficultyStep score points</span>
+        property <span class="type">int</span> <span class="name">spawnAcceleration</span>: <span class="number">50</span> <span class="comment">// acceleration for spawning enemies each difficultyStep</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// spawner for enemies</span>
+        <span class="type">Timer</span> {
+                <span class="comment">// ...</span>
+
+                <span class="name">onTriggered</span>: {
+                        <span class="comment">// ...</span>
+                        <span class="comment">// calculate parameters to move the enemy towards the mouse position</span>
+                        <span class="comment">// ...</span>
+
+                        <span class="comment">// calculate new spawn frequency (enemies spawn faster depending on score)</span>
+                        var difficulty = <span class="name">Math</span>.<span class="name">floor</span>(<span class="name">score</span> <span class="operator">/</span> <span class="name">difficultyStep</span>)
+                        <span class="name">interval</span> <span class="operator">=</span> <span class="name">Math</span>.<span class="name">max</span>(<span class="name">minEnemySpawnInterval</span>, <span class="name">initEnemySpawnInterval</span> <span class="operator">-</span> <span class="name">difficulty</span> <span class="operator">*</span> <span class="name">spawnAcceleration</span>)
+                }
+        }
+}</pre>
+<p>One problem arises from the faster spawning enemies. It now happens quite frequently that the game over screen is accidentally dismissed by clicking. To prevent the game from restarting too quickly, we are adding a delay <code translate="no">Timer</code> that temporarily locks the <code translate="no">MouseArea</code> before the game can be restarted.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        property <span class="type">int</span> <span class="name">delayTimerInterval</span>: <span class="number">500</span> <span class="comment">// delay for game over to not accidentally dismiss the screen</span>
+        <span class="comment">// ...</span>
+
+        <span class="comment">// trigger bullet shots when mouse was clicked</span>
+        <span class="type">MouseArea</span> {
+                <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">onPressed</span>: (<span class="keyword"></span>mouse)=&gt; {
+                        <span class="keyword">if</span>(<span class="name">gameRunning</span>){
+                                <span class="comment">// calculate parameters to move the bullet from the middle of the player toward the mouse position</span>
+                                var movementProperties = <span class="name">calculateMovementParameters</span>(<span class="name">player</span>.<span class="name">x</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span><span class="operator">/</span><span class="number">2</span>,  <span class="comment">// x</span>
+                                                        <span class="name">player</span>.<span class="name">y</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span>, <span class="comment">// y</span>
+                                                        <span class="name">mouse</span>.<span class="name">x</span>, <span class="comment">// destX</span>
+                                                        <span class="name">mouse</span>.<span class="name">y</span>  <span class="comment">// destY</span>
+                                                        )
+                                <span class="comment">// move bullet a bit outside of the player to not overlap with it</span>
+                                <span class="name">movementProperties</span>.<span class="name">x</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityX</span> <span class="operator">-</span> <span class="number">5</span>
+                                <span class="name">movementProperties</span>.<span class="name">y</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityY</span> <span class="operator">-</span> <span class="number">5</span>
+
+                                <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                        }
+                        <span class="keyword">else</span> <span class="keyword">if</span>(!<span class="name">delayTimer</span>.<span class="name">running</span>) { <span class="comment">// wait for delay before allowing reset the game</span>
+                                <span class="name">resetGame</span>()
+                        }
+                }
+        }
+
+        <span class="comment">// ...</span>
+
+        <span class="comment">// delay timer for game over to not accidentally dismiss the screen</span>
+        <span class="type">Timer</span> {
+                <span class="name">id</span>: <span class="name">delayTimer</span>
+                <span class="name">interval</span>: <span class="name">delayTimerInterval</span>
+                <span class="name">running</span>: <span class="number">false</span>
+        }
+
+        <span class="comment">// ...</span>
+
+        <span class="keyword">function</span> <span class="name">gameOver</span>() {
+                <span class="comment">// freeze the game and stop movement</span>
+                <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">false</span>
+                <span class="name">delayTimer</span>.<span class="name">restart</span>()
+        }
+}</pre>
+<p>The game is now working perfectly. We can now restart it and increase the difficulty level depending on the number of enemies shot down.</p>
+<h2 id="game-overlay">Game overlay</h2>
+<p>Finally, we want to display the score and the messages &quot;Game Over&quot; or &quot;Pause&quot;. To keep it as simple as possible, we will implement a text overlay called <code translate="no">OverlayText</code>. This class is very short and consists of primary and secondary text, as well as a highlight rectangle that separates the text from the game.</p>
+<p><code translate="no">qml/items/OverlayText.qml</code>:</p>
+<pre class="cpp" translate="no">import Felgo 4.0
+import QtQuick 2.0
+
+<span class="type">Item</span> {
+        <span class="name">z</span>: <span class="number">1</span> <span class="comment">// forces object to be drawn above the game elements</span>
+
+        property <span class="type">alias</span> <span class="name">primaryText</span>: <span class="name">primaryText</span>.<span class="name">text</span>
+        property <span class="type">alias</span> <span class="name">secondaryText</span>: <span class="name">secondaryText</span>.<span class="name">text</span>
+
+        <span class="comment">// background</span>
+        <span class="type">Rectangle</span> {
+                <span class="name">anchors</span>.fill: <span class="name">textBlock</span>
+                <span class="name">color</span>: <span class="string">&quot;darkgray&quot;</span>
+                <span class="name">opacity</span>: <span class="number">0.2</span>
+        }
+
+        <span class="comment">// overlay text</span>
+        <span class="type">Column</span> {
+                <span class="name">id</span>: <span class="name">textBlock</span>
+                <span class="name">anchors</span>.centerIn: <span class="name">parent</span>
+                <span class="type">Text</span> {
+                        <span class="name">id</span>: <span class="name">primaryText</span>
+                        <span class="name">font</span>.pixelSize: <span class="number">40</span>
+                        <span class="name">color</span>: <span class="string">&quot;red&quot;</span>
+                }
+                <span class="type">Text</span> {
+                        <span class="name">id</span>: <span class="name">secondaryText</span>
+                        <span class="name">anchors</span>.horizontalCenter:
+                                <span class="name">primaryText</span>.<span class="name">text</span> <span class="operator">!=</span> <span class="string">&quot;&quot;</span> ? <span class="name">primaryText</span>.<span class="name">horizontalCenter</span> : <span class="name">parent</span>.<span class="name">horizontalCenter</span>
+                        <span class="name">font</span>.pixelSize: <span class="number">14</span>
+                        <span class="name">color</span>: <span class="string">&quot;red&quot;</span>
+                }
+        }
+}</pre>
+<p>We will use the newly created <code translate="no">OverlayText</code> class in our <code translate="no">GameScene</code> and add one element for the score text and another for the game overlay and restart text.</p>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+
+        <span class="comment">// score text</span>
+        <span class="type">OverlayText</span> {
+                <span class="name">id</span>: <span class="name">scoreText</span>
+                <span class="name">anchors</span>.horizontalCenter: <span class="name">gameWindowAnchorItem</span>.<span class="name">horizontalCenter</span>
+                <span class="name">y</span>: <span class="number">10</span>
+                <span class="name">secondaryText</span>: <span class="string">&quot;score: &quot;</span> <span class="operator">+</span> <span class="name">score</span>
+        }
+
+        <span class="comment">// game over or restart text</span>
+        <span class="type">OverlayText</span> {
+                <span class="name">id</span>: <span class="name">overlayText</span>
+                <span class="name">anchors</span>.centerIn: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">visible</span>: !<span class="name">gameRunning</span>
+
+                <span class="name">primaryText</span>: <span class="string">&quot;pause&quot;</span>
+                <span class="name">secondaryText</span>: <span class="string">&quot;click to start&quot;</span>
+        }
+
+        <span class="comment">// ...</span>
+
+        <span class="keyword">function</span> <span class="name">resetGame</span>() {
+                <span class="comment">// delete all enemies and bullets</span>
+                <span class="name">entityManager</span>.<span class="name">removeEntitiesByFilter</span>([<span class="string">&quot;enemy&quot;</span>,<span class="string">&quot;bullet&quot;</span>])
+
+                <span class="name">score</span> <span class="operator">=</span> <span class="number">0</span> <span class="comment">// reset score</span>
+
+                <span class="comment">// rename overlay text for next game over</span>
+                <span class="name">overlayText</span>.<span class="name">primaryText</span> <span class="operator">=</span> <span class="string">&quot;GAME OVER&quot;</span>
+                <span class="name">overlayText</span>.<span class="name">secondaryText</span> <span class="operator">=</span> <span class="string">&quot;click to restart&quot;</span>
+
+                <span class="comment">// (re)start game</span>
+                <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">true</span>
+        }
+}</pre>
+<p>With these few changes, we now have a pause and a game over screen and we will actually see how many points we have collected.</p>
+<p class="centerAlign"><img src="images/pause.png" alt="" /></p><p class="centerAlign"><img src="images/gameOver.png" alt="" /></p><p>That's it - now enjoy hunting for a new high score!</p>
+</div>
+<!-- @@@How-to-create-a-simple-game-with-Felgo -->
+</body>
+</html>
