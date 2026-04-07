@@ -5,6 +5,9 @@ EntityBase {
     id: bullet
     entityType: "bullet"
 
+    // signal to notify GameScene
+    signal enemyHit
+
     // bullet size
     width: spriteSequence.width
     height: spriteSequence.height
@@ -69,8 +72,8 @@ EntityBase {
 
       // collision between bullet and enemy
       fixture.onBeginContact: (other) => {
-          // increase score
-          gameScene.score++
+          // notify GameScene about collision with enemy
+          enemyHit()
           // remove hit enemy and shot bullet
           other.getBody().target.removeEntity()
           removeEntity()

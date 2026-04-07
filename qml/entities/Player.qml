@@ -5,6 +5,9 @@ EntityBase {
     id: player
     entityType: "player"
 
+    // signal to notify GameScene
+    signal hitByEnemy
+
     // player size
     width: spriteSequence.width
     height: spriteSequence.height
@@ -35,7 +38,7 @@ EntityBase {
 
       // collision between player and enemy
       fixture.onBeginContact: (other) => {
-        gameScene.gameOver()
+        hitByEnemy()
       }
     }
 }

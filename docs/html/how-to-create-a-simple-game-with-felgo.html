@@ -440,11 +440,6 @@ import QtQuick 2.0
                 <span class="comment">// player should only collide with enemy</span>
                 <span class="name">categories</span>:   <span class="name">Circle</span>.<span class="name">Category1</span>
                 <span class="name">collidesWith</span>: <span class="name">Circle</span>.<span class="name">Category2</span>
-
-                <span class="comment">// collision between player and enemy</span>
-                <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
-                        <span class="name">gameScene</span>.<span class="name">gameOver</span>()
-                }
         }
 }</pre>
 <p><code translate="no">qml/entities/Enemy.qml</code>:</p>
@@ -487,6 +482,41 @@ import QtQuick 2.0
                         <span class="name">removeEntity</span>()
                 }
         }
+}</pre>
+<p>When the player was hit by an enemy, we will notify the <code translate="no">GameScene</code> about it and call the <code translate="no">gameOver</code> function. To achieve this, we will add a signal to the <code translate="no">Player</code> and connect it to the <code translate="no">GameScene</code>.</p>
+<p><code translate="no">qml/entities/Player.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">EntityBase</span> {
+        <span class="comment">// ...</span>
+
+        <span class="type">CircleCollider</span> {
+                <span class="comment">// ...</span>
+                <span class="comment">// signal to notify GameScene</span>
+                signal <span class="type">hitByEnemy</span>
+
+                <span class="comment">// ...</span>
+                <span class="comment">// collision between player and enemy</span>
+                <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
+                        <span class="name">hitByEnemy</span>()
+                }
+        }
+}</pre>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+        <span class="type">Player</span> {
+                <span class="comment">// ...</span>
+        }
+
+        <span class="comment">// connection to player signal</span>
+        <span class="type">Connections</span> {
+                <span class="name">target</span>: <span class="name">player</span>
+
+                <span class="keyword">function</span> <span class="name">onHitByEnemy</span>() {
+                        <span class="name">gameOver</span>()
+                }
+        }
+
+        <span class="comment">// ...</span>
 }</pre>
 <p>After implementing all of these steps, we have finally a first working prototype! The enemies appear and move, we can shoot and collisions are now detected, which either removes hit enemies and bullets or pause the game. We can confidently call this a big milestone!</p>
 <h2 id="game-logic">Game logic</h2>
@@ -554,21 +584,41 @@ import QtQuick 2.0
                 <span class="name">gameRunning</span> <span class="operator">=</span> <span class="number">true</span>
         }
 }</pre>
-<p>Increasing the score takes place in the <code translate="no">CircleCollider</code> of our <code translate="no">Bullet</code> class.</p>
+<p>To increase the score, we introduce a signal in <code translate="no">Bullet</code> that notifies the <code translate="no">GameScene</code>, where the <code translate="no">score</code> will be increased.</p>
 <p><code translate="no">qml/entities/Bullet.qml</code>:</p>
 <pre class="cpp" translate="no"><span class="type">EntityBase</span> {
         <span class="comment">// ...</span>
+        <span class="comment">// signal to notify GameScene</span>
+        signal <span class="type">enemyHit</span>
 
+        <span class="comment">// ...</span>
         <span class="comment">// collider to check if bullet hits an enemy</span>
         <span class="type">CircleCollider</span> {
                 <span class="comment">// ...</span>
                 <span class="comment">// collision between bullet and enemy</span>
                 <span class="name">fixture</span>.onBeginContact: (<span class="keyword"></span>other) =&gt; {
-                        <span class="comment">// increase score</span>
-                        gameScene.score++
+                        <span class="comment">// notify GameScene about collision with enemy</span>
+                        <span class="name">enemyHit</span>()
                         <span class="comment">// remove hit enemy and shot bullet</span>
                         <span class="name">other</span>.<span class="name">getBody</span>().<span class="name">target</span>.<span class="name">removeEntity</span>()
                         <span class="name">removeEntity</span>()
+                }
+        }
+}</pre>
+<p><code translate="no">qml/GameScene.qml</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+        <span class="comment">// ...</span>
+
+        <span class="comment">// trigger bullet shots when mouse was clicked</span>
+        <span class="type">MouseArea</span> {
+                <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+                <span class="name">onPressed</span>: (<span class="keyword"></span>mouse)=&gt; {
+                                <span class="comment">// ...</span>
+
+                                var bulletID = <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                                <span class="name">entityManager</span>.<span class="name">getEntityById</span>(<span class="name">bulletID</span>).<span class="name">enemyHit</span>.<span class="name">connect</span>(<span class="keyword">function</span>() { score++ })
+
+                                <span class="comment">// ...</span>
                 }
         }
 }</pre>
@@ -619,7 +669,8 @@ import QtQuick 2.0
                                 <span class="name">movementProperties</span>.<span class="name">x</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityX</span> <span class="operator">-</span> <span class="number">5</span>
                                 <span class="name">movementProperties</span>.<span class="name">y</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityY</span> <span class="operator">-</span> <span class="number">5</span>
 
-                                <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                                var bulletID = <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(<span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+                                <span class="name">entityManager</span>.<span class="name">getEntityById</span>(<span class="name">bulletID</span>).<span class="name">enemyHit</span>.<span class="name">connect</span>(<span class="keyword">function</span>() { score++ })
                         }
                         <span class="keyword">else</span> <span class="keyword">if</span>(!<span class="name">delayTimer</span>.<span class="name">running</span>) { <span class="comment">// wait for delay before allowing reset the game</span>
                                 <span class="name">resetGame</span>()

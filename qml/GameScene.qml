@@ -34,6 +34,15 @@ Scene {
         y: gameWindowAnchorItem.height - height - 10
     }
 
+    // connection to player signal
+    Connections {
+        target: player
+
+        function onHitByEnemy() {
+            gameOver()
+        }
+    }
+
     // create bullets at runtime
     EntityManager {
       id: entityManager
@@ -73,7 +82,8 @@ Scene {
                 movementProperties.x += 22*movementProperties.velocityX - 5
                 movementProperties.y += 22*movementProperties.velocityY - 5
 
-                entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+                var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+                entityManager.getEntityById(bulletID).enemyHit.connect(function() { score++ })
             }
             else if(!delayTimer.running) { // wait for delay before allowing reset the game
                 resetGame()

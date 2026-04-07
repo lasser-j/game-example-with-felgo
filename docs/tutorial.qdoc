@@ -506,11 +506,6 @@
 				// player should only collide with enemy
 				categories:   Circle.Category1
 				collidesWith: Circle.Category2
-
-				// collision between player and enemy
-				fixture.onBeginContact: (other) => {
-					gameScene.gameOver()
-				}
 			}
 		}
 	\endcode
@@ -559,6 +554,48 @@
 					removeEntity()
 				}
 			}
+		}
+	\endcode
+
+	When the player was hit by an enemy, we will notify the \c{GameScene} about it and call the \c{gameOver} function. To achieve this, we will add a signal to the \c{Player} and connect it to the \c{GameScene}.
+
+	\c{qml/entities/Player.qml}:
+	\code
+		EntityBase {
+			// ...
+
+			CircleCollider {
+				// ...
+				// signal to notify GameScene
+				signal hitByEnemy
+
+				// ...
+				// collision between player and enemy
+				fixture.onBeginContact: (other) => {
+					hitByEnemy()
+				}
+			}
+		}
+	\endcode
+
+	\c{qml/GameScene.qml}:
+	\code
+		Scene {
+			// ...
+			Player {
+				// ...
+			}
+
+			// connection to player signal
+			Connections {
+				target: player
+
+				function onHitByEnemy() {
+					gameOver()
+				}
+			}
+
+			// ...
 		}
 	\endcode
 
@@ -643,23 +680,46 @@
 		}
 	\endcode
 
-	Increasing the score takes place in the \c{CircleCollider} of our \c{Bullet} class.
+	To increase the score, we introduce a signal in \c{Bullet} that notifies the \c{GameScene}, where the \c{score} will be increased.
 
 	\c{qml/entities/Bullet.qml}:
 	\code
 		EntityBase {
 			// ...
+			// signal to notify GameScene
+			signal enemyHit
 
+			// ...
 			// collider to check if bullet hits an enemy
 			CircleCollider {
 				// ...
 				// collision between bullet and enemy
 				fixture.onBeginContact: (other) => {
-					// increase score
-					gameScene.score++
+					// notify GameScene about collision with enemy
+					enemyHit()
 					// remove hit enemy and shot bullet
 					other.getBody().target.removeEntity()
 					removeEntity()
+				}
+			}
+		}
+	\endcode
+
+	\c{qml/GameScene.qml}:
+	\code
+		Scene {
+			// ...
+
+			// trigger bullet shots when mouse was clicked
+			MouseArea {
+				anchors.fill: gameWindowAnchorItem
+				onPressed: (mouse)=> {
+						// ...
+
+						var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+						entityManager.getEntityById(bulletID).enemyHit.connect(function() { score++ })
+
+						// ...
 				}
 			}
 		}
@@ -718,7 +778,8 @@
 						movementProperties.x += 22*movementProperties.velocityX - 5
 						movementProperties.y += 22*movementProperties.velocityY - 5
 
-						entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+						var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+						entityManager.getEntityById(bulletID).enemyHit.connect(function() { score++ })
 					}
 					else if(!delayTimer.running) { // wait for delay before allowing reset the game
 						resetGame()
