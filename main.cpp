@@ -3,6 +3,9 @@
 
 #include <QQmlApplicationEngine>
 
+#include <QQmlContext>
+#include "src/GameController.hpp"
+
 // Uncomment this line to add Felgo Hot Reload and use hot reloading with your custom C++ code
 //#include <FelgoHotReload>
 
@@ -26,12 +29,15 @@ int main(int argc, char *argv[])
     // for PUBLISHING, use the entry point below
     felgo.setMainQmlFileName(QStringLiteral("qml/Main.qml"));
 
+    // make GameController pbject available in QML with name "gameController"
+    GameController controller;
+    engine.rootContext()->setContextProperty("gameController", &controller);
+
     // use this instead of the above call to avoid deployment of the qml files and compile them into the binary with qt's resource system qrc
     // this is the preferred deployment option for publishing apps to the app stores, because then your qml files and js files are protected
     // to avoid deployment of your qml files and images, also comment the deploy_resources command in the CMakeLists file
     // also see the CMakeLists.txt file for more details
     //felgo.setMainQmlFileName(QStringLiteral("qrc:/qml/Main.qml"));
-
     engine.load(QUrl(felgo.mainQmlFileName()));
 
     // to start your project with Felgo Hot Reload, comment (remove) the lines "felgo.setMainQmlFileName ..." & "engine.load ...",

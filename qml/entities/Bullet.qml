@@ -20,7 +20,7 @@ EntityBase {
     // bullet image
     GameSpriteSequence {
       id: spriteSequence
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
       GameSprite {
         frameCount: 4
         frameRate: 15
@@ -39,7 +39,7 @@ EntityBase {
       velocity: velocityX * speed
       minPropertyValue: -parent.width
       maxPropertyValue: gameScene.gameWindowAnchorItem.width
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
 
       onLimitReached: {
           removeEntity()
@@ -53,7 +53,7 @@ EntityBase {
       velocity: velocityY * speed
       minPropertyValue: -parent.height
       maxPropertyValue: gameScene.gameWindowAnchorItem.height
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
 
       onLimitReached: {
           removeEntity()

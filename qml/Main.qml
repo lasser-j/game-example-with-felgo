@@ -19,5 +19,6 @@ GameWindow {
 
     // game scene where the actual game is located
     GameScene {
+        id: gameScene
     }
 }

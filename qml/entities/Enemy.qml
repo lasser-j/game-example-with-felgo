@@ -17,7 +17,7 @@ EntityBase {
     // enemy image
     GameSpriteSequence {
       id: spriteSequence
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
       GameSprite {
         frameCount: 2
         frameRate: 5
@@ -34,7 +34,7 @@ EntityBase {
       target: parent
       property: "x"
       velocity: velocityX * speed
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
     }
 
     MovementAnimation {
@@ -42,7 +42,7 @@ EntityBase {
       target: parent
       property: "y"
       velocity: velocityY * speed
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
     }
 
     // collider to check if enemy reached the player or was hit by a bullet

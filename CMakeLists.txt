@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Felgo REQUIRED)
 
-
 # Project identifier and version
 # More information: https://felgo.com/doc/felgo-publishing/#project-configuration
 set(PRODUCT_IDENTIFIER "com.ombalat.Invasion")
@@ -26,6 +25,12 @@ set(PRODUCT_LICENSE_KEY "")
 set(FELGO_PLUGINS
 )
 
+# Source files
+set(CPP_SOURCES
+    src/GameController.cpp
+    src/GameController.hpp
+)
+
 # Find all QML/JS files for the QML compiler:
 file(GLOB_RECURSE QmlFiles RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} qml/*.qml qml/*.js)
 
@@ -35,6 +40,7 @@ list(REMOVE_ITEM AssetsFiles ${QmlFiles})
 
 qt_add_executable(invasion
     main.cpp
+    ${CPP_SOURCES}
     ${QmlFiles}
     ${AssetsFiles}
 )

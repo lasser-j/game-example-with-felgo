@@ -7,8 +7,6 @@ import "items"
 Scene {
     id: gameScene
 
-    property bool gameRunning: false // pause the game until player clicks
-
     property real score: 0 // score dependent on how many enemies are shot
 
     property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
@@ -32,14 +30,12 @@ Scene {
         id: player
         anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
         y: gameWindowAnchorItem.height - height - 10
-    }
 
-    // connection to player signal
-    Connections {
-        target: player
-
-        function onHitByEnemy() {
-            gameOver()
+        // connection to player signal
+        onHitByEnemy: {
+            // freeze the game and stop movement
+            gameController.gameOver()
+            delayTimer.restart()
         }
     }
 
@@ -61,7 +57,7 @@ Scene {
     OverlayText {
         id: overlayText
         anchors.centerIn: gameWindowAnchorItem
-        visible: !gameRunning
+        visible: !gameController.gameRunning
 
         primaryText: "pause"
         secondaryText: "click to start"
@@ -71,7 +67,7 @@ Scene {
     MouseArea {
         anchors.fill: gameWindowAnchorItem
         onPressed: (mouse)=> {
-            if(gameRunning){
+            if(gameController.gameRunning){
                 // calculate parameters to move the bullet from the middle of the player toward the mouse position
                 var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
                                                                      player.y + player.height/2, // y
@@ -91,10 +87,23 @@ Scene {
         }
     }
 
+    // reaction to gameOver() to change overlay-text for next restart.
+    Connections {
+        target: gameController
+
+        function onGameRunningChanged() {
+            if (!gameController.gameRunning) {
+                // rename overlay text for next game over
+                overlayText.primaryText   = "GAME OVER"
+                overlayText.secondaryText = "click to restart"
+            }
+        }
+    }
+
     // spwaner for enemies
     Timer {
         interval: initEnemySpawnInterval
-        running: gameRunning
+        running: gameController.gameRunning
         repeat: true
 
         onTriggered: {
@@ -135,6 +144,8 @@ Scene {
         running: false
     }
 
+    // helper functions - only minimal JS, UI glue code only
+
     function calculateMovementParameters(x, y, destX, destY){
         // calculate direction from origin towards destination
         var dx = destX - x
@@ -156,23 +167,13 @@ Scene {
         return newEntityProperties
     }
 
-    function gameOver() {
-        // freeze the game and stop movement
-        gameRunning = false
-        delayTimer.restart()
-    }
-
     function resetGame() {
         // delete all enemies and bullets
         entityManager.removeEntitiesByFilter(["enemy","bullet"])
 
         score = 0 // reset score
 
-        // rename overlay text for next game over
-        overlayText.primaryText = "GAME OVER"
-        overlayText.secondaryText = "click to restart"
-
         // (re)start game
-        gameRunning = true
+        gameController.startGame()
     }
 }

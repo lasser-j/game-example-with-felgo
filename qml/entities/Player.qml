@@ -15,7 +15,7 @@ EntityBase {
     // player image
     GameSpriteSequence {
       id: spriteSequence
-      running: gameScene.gameRunning
+      running: gameController.gameRunning
       GameSprite {
         frameCount: 4
         frameRate: 1
