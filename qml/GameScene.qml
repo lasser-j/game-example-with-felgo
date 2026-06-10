@@ -7,8 +7,6 @@ import "items"
 Scene {
     id: gameScene
 
-    property real score: 0 // score dependent on how many enemies are shot
-
     property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
     property int minEnemySpawnInterval: 200 // fastest spawn interval for enemies
     property int difficultyStep: 20 // spawn interval for enemies will be increased each difficultyStep score points
@@ -50,7 +48,7 @@ Scene {
         id: scoreText
         anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
         y: 10
-        secondaryText: "score: " + score
+        secondaryText: "score: " + gameController.score
     }
 
     // game over or restart text
@@ -79,7 +77,7 @@ Scene {
                 movementProperties.y += 22*movementProperties.velocityY - 5
 
                 var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
-                entityManager.getEntityById(bulletID).enemyHit.connect(function() { score++ })
+                entityManager.getEntityById(bulletID).enemyHit.connect(function() { gameController.incrementScore() })
             }
             else if(!delayTimer.running) { // wait for delay before allowing reset the game
                 resetGame()
@@ -132,7 +130,7 @@ Scene {
             entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties)
 
             // calculate new spawn frequency (enemies spawn faster depending on score)
-            var difficulty = Math.floor(score / difficultyStep)
+            var difficulty = Math.floor(gameController.score / difficultyStep)
             interval = Math.max(minEnemySpawnInterval, initEnemySpawnInterval - difficulty * spawnAcceleration)
         }
     }
@@ -170,8 +168,6 @@ Scene {
     function resetGame() {
         // delete all enemies and bullets
         entityManager.removeEntitiesByFilter(["enemy","bullet"])
-
-        score = 0 // reset score
 
         // (re)start game
         gameController.startGame()
