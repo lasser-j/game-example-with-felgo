@@ -12,8 +12,6 @@ Scene {
     property int difficultyStep: 20 // spawn interval for enemies will be increased each difficultyStep score points
     property int spawnAcceleration: 50 // acceleration for spawning enemies each difficultyStep
 
-    property int delayTimerInterval: 500 // delay for game over to not accidentally dismiss the screen
-
     PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 
     // background image
@@ -33,7 +31,6 @@ Scene {
         onHitByEnemy: {
             // freeze the game and stop movement
             gameController.gameOver()
-            delayTimer.restart()
         }
     }
 
@@ -79,7 +76,7 @@ Scene {
                 var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
                 entityManager.getEntityById(bulletID).enemyHit.connect(function() { gameController.incrementScore() })
             }
-            else if(!delayTimer.running) { // wait for delay before allowing reset the game
+            else if(!gameController.isDelayActive()) { // wait for delay before allowing reset the game
                 resetGame()
             }
         }
@@ -133,13 +130,6 @@ Scene {
             var difficulty = Math.floor(gameController.score / difficultyStep)
             interval = Math.max(minEnemySpawnInterval, initEnemySpawnInterval - difficulty * spawnAcceleration)
         }
-    }
-
-    // delay timer for game over to not accidentally dismiss the screen
-    Timer {
-        id: delayTimer
-        interval: delayTimerInterval
-        running: false
     }
 
     // helper functions - only minimal JS, UI glue code only

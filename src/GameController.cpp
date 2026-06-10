@@ -5,6 +5,9 @@
 
 GameController::GameController(QObject* parent)
     : QObject(parent) {
+    // Delay timer: single-shot, guards against accidental restart clicks.
+    m_delayTimer.setSingleShot(true);
+    m_delayTimer.setInterval(k_delayInterval);
 }
 
 // invokable game actions
@@ -18,6 +21,7 @@ void GameController::startGame()
 void GameController::gameOver()
 {
     setGameRunning(false);
+    m_delayTimer.start();
 }
 
 void GameController::incrementScore()
