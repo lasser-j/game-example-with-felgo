@@ -7,10 +7,12 @@ import "items"
 Scene {
     id: gameScene
 
-    property int initEnemySpawnInterval: 500 // initial spawn interval for enemies
-    property int minEnemySpawnInterval: 200 // fastest spawn interval for enemies
-    property int difficultyStep: 20 // spawn interval for enemies will be increased each difficultyStep score points
-    property int spawnAcceleration: 50 // acceleration for spawning enemies each difficultyStep
+    // init, set scene dimension for spawn calculation
+    Component.onCompleted: {
+        gameController.setSceneDimensions(
+            gameWindowAnchorItem.width,
+            gameWindowAnchorItem.height)
+    }
 
     PhysicsWorld { } // no need to set gravity, the collider is not physics-based
 
@@ -32,6 +34,10 @@ Scene {
             // freeze the game and stop movement
             gameController.gameOver()
         }
+
+        // set scene dimensions for spawn calculation
+        Component.onCompleted: gameController.updatePlayerPosition(
+                                   player.x, player.y, player.width, player.height)
     }
 
     // create bullets at runtime
@@ -64,7 +70,7 @@ Scene {
         onPressed: (mouse)=> {
             if(gameController.gameRunning){
                 // calculate parameters to move the bullet from the middle of the player toward the mouse position
-                var movementProperties = calculateMovementParameters(player.x + player.width/2,  // x
+                var movementProperties = gameController.calculateMovementParameters(player.x + player.width/2,  // x
                                                                      player.y + player.height/2, // y
                                                                      mouse.x, // destX
                                                                      mouse.y  // destY
@@ -82,10 +88,10 @@ Scene {
         }
     }
 
-    // reaction to gameOver() to change overlay-text for next restart.
     Connections {
         target: gameController
 
+        // reaction to gameOver() to change overlay-text for next restart.
         function onGameRunningChanged() {
             if (!gameController.gameRunning) {
                 // rename overlay text for next game over
@@ -93,67 +99,15 @@ Scene {
                 overlayText.secondaryText = "click to restart"
             }
         }
-    }
 
-    // spwaner for enemies
-    Timer {
-        interval: initEnemySpawnInterval
-        running: gameController.gameRunning
-        repeat: true
-
-        onTriggered: {
-            // enemies should appear on a random side, except at the bottom
-            var side = Math.floor(Math.random() * 3)
-            var x, y
-
-            if (side === 0) { // top
-                                    x = Math.random() * gameWindowAnchorItem.width
-                                    y = -player.width
-            } else if (side === 1) { // left
-                                    x = -player.width
-                                    y = Math.random() * gameWindowAnchorItem.height
-            } else { // right
-                                    x = gameWindowAnchorItem.width + player.width
-                                    y = Math.random() * gameWindowAnchorItem.height
-            }
-
-            // calculate parameters to move the enemy towards the player
-            var movementProperties = calculateMovementParameters(x, // x
-                                                                 y, // y
-                                                                 player.x + player.width/2, // destX
-                                                                 player.y + player.height/2 // destY
-                                                                )
-
-            entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Enemy.qml"), movementProperties)
-
-            // calculate new spawn frequency (enemies spawn faster depending on score)
-            var difficulty = Math.floor(gameController.score / difficultyStep)
-            interval = Math.max(minEnemySpawnInterval, initEnemySpawnInterval - difficulty * spawnAcceleration)
+        // create enemies
+        function onSpawnEnemyRequested(properties) {
+            entityManager.createEntityFromUrlWithProperties(
+                Qt.resolvedUrl("entities/Enemy.qml"), properties)
         }
     }
 
     // helper functions - only minimal JS, UI glue code only
-
-    function calculateMovementParameters(x, y, destX, destY){
-        // calculate direction from origin towards destination
-        var dx = destX - x
-        var dy = destY - y
-        var len = Math.sqrt(dx*dx + dy*dy)
-        dx /= len
-        dy /= len
-
-        // create propeerties for movement animation
-        // x/y: start position of bullet - player position moved slightly into direction of mouse click
-        // velocityX/Y: direction towards mouse position, used for moving the bullet
-        var newEntityProperties = {
-            x: x,
-            y: y,
-            velocityX: dx,
-            velocityY: dy
-        }
-
-        return newEntityProperties
-    }
 
     function resetGame() {
         // delete all enemies and bullets
