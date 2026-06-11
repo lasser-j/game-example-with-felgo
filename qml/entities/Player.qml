@@ -8,6 +8,8 @@ EntityBase {
     // signal to notify GameScene
     signal hitByEnemy
 
+    property bool active: false
+
     // player size
     width: spriteSequence.width
     height: spriteSequence.height
@@ -15,7 +17,7 @@ EntityBase {
     // player image
     GameSpriteSequence {
       id: spriteSequence
-      running: gameController.gameRunning
+      running: active
       GameSprite {
         frameCount: 4
         frameRate: 1

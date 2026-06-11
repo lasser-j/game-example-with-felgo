@@ -26,6 +26,7 @@ Scene {
     // player
     Player {
         id: player
+        active: gameController.gameRunning
         anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
         y: gameWindowAnchorItem.height - height - 10
 
@@ -80,7 +81,9 @@ Scene {
                 movementProperties.y += 22*movementProperties.velocityY - 5
 
                 var bulletID = entityManager.createEntityFromUrlWithProperties(Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
-                entityManager.getEntityById(bulletID).enemyHit.connect(function() { gameController.incrementScore() })
+                var entity = entityManager.getEntityById(bulletID)
+                entity.enemyHit.connect(function() { gameController.incrementScore() })
+                entity.active = Qt.binding(function() { return gameController.gameRunning })
             }
             else if(!gameController.isDelayActive()) { // wait for delay before allowing reset the game
                 resetGame()
@@ -102,8 +105,10 @@ Scene {
 
         // create enemies
         function onSpawnEnemyRequested(properties) {
-            entityManager.createEntityFromUrlWithProperties(
+            var enemyID = entityManager.createEntityFromUrlWithProperties(
                 Qt.resolvedUrl("entities/Enemy.qml"), properties)
+            var entity = entityManager.getEntityById(enemyID)
+            entity.active = Qt.binding(function() { return gameController.gameRunning })
         }
     }
 
