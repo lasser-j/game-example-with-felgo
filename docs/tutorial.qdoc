@@ -2,6 +2,8 @@
 	\page How-to-create-a-simple-game-with-Felgo
 	\title How to build a simple game with Felgo
 
+    \nextpage refactoring-cpp-model-view
+
 	Welcome to the step-by-step guide on creating a cross-platform game using \l{https://felgo.com}{Felgo}.
 	In this tutorial, we will break down an example game called Invasion into its core components. The full source code of the game is available at \l{https://github.com/lasser-j/game-example-with-felgo}{GitHub}. Below you will find a small preview image to give you an impression of the game's look and feel.
 

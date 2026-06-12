@@ -13,5 +13,27 @@
             <contents name="game-logic" title="Game logic" level="1"/>
             <contents name="game-overlay" title="Game overlay" level="1"/>
         </page>
+        <page name="refactoring-cpp-model-view" href="refactoring-cpp-model-view.html" status="active" location="refactoring.qdoc" filepath="D:/Github/invasion/docs/refactoring.qdoc" lineno="1" documented="true" subtype="page" title="Refactoring to C++: A Model/View Architecture with GameController" fulltitle="Refactoring to C++: A Model/View Architecture with GameController" subtitle="">
+            <contents name="motivation" title="Motivation" level="1"/>
+            <contents name="architecture-overview" title="Architecture Overview" level="1"/>
+            <contents name="implementing-gamecontroller" title="Implementing GameController" level="1"/>
+            <contents name="header" title="Header" level="2"/>
+            <contents name="implementation" title="Implementation" level="2"/>
+            <contents name="property-setters-and-notify-signals" title="Property setters and NOTIFY signals" level="2"/>
+            <contents name="registering-gamecontroller-in-qml" title="Registering GameController in QML" level="2"/>
+            <contents name="updating-gamescene-qml" title="Updating GameScene.qml" level="1"/>
+            <contents name="scene-setup" title="Scene setup" level="2"/>
+            <contents name="score-and-overlay-bindings" title="Score and overlay bindings" level="2"/>
+            <contents name="reacting-to-game-over-renaming-the-overlay-text" title="Reacting to game-over: renaming the overlay text" level="2"/>
+            <contents name="spawning-enemies-from-qml-timer-to-c-signal" title="Spawning enemies: from QML Timer to C++ signal" level="2"/>
+            <contents name="shooting-delegating-the-vector-math" title="Shooting: delegating the vector math" level="2"/>
+            <contents name="resetting-the-game" title="Resetting the game" level="2"/>
+            <contents name="updating-the-entity-files" title="Updating the entity files" level="1"/>
+            <contents name="the-active-property-pattern" title="The active property pattern" level="2"/>
+            <contents name="player-position-reporting" title="Player: position reporting" level="2"/>
+            <contents name="enemy-and-bullet-no-further-changes" title="Enemy and Bullet: no further changes" level="2"/>
+            <contents name="what-stays-in-qml-and-why" title="What stays in QML, and why" level="1"/>
+            <contents name="result" title="Result" level="1"/>
+        </page>
     </namespace>
 </INDEX>

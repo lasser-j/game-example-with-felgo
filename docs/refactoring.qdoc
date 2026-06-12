@@ -1,0 +1,615 @@
+/*!
+    \page refactoring-cpp-model-view
+    \title Refactoring to C++: A Model/View Architecture with GameController
+
+    \previouspage How-to-create-a-simple-game-with-Felgo
+
+    This tutorial builds on \l{How-to-create-a-simple-game-with-Felgo}{the original Invasion tutorial}.
+    If you haven't built the QML-only version yet, start there first. The complete source code
+    for this version is available at
+    \l{https://github.com/lasser-j/game-example-with-felgo/tree/v2.0-cpp-refactor}{GitHub (tag v2.0-cpp-refactor)},
+    the original QML-only version remains available at
+    \l{https://github.com/lasser-j/game-example-with-felgo/tree/v1.0-qml-only}{tag v1.0-qml-only}.
+
+    \section1 Motivation
+
+    The original tutorial implements all game logic directly in QML/JavaScript: the score,
+    the difficulty curve, the spawn timer, and the movement-vector calculation all live as
+    properties and functions on \c{GameScene}. This is a fast way to prototype a game, but it
+    has downsides once a project grows:
+
+    \list
+        \li Game state and UI state are mixed in the same file
+        \li JavaScript logic cannot be unit-tested without a running QML engine
+        \li There is no clear ownership boundary between "what the game does" and "how it looks"
+    \endlist
+
+    In this tutorial, we extract the game logic into a C++ class, \c{GameController}, following
+    a Model/View separation: \c{GameController} is the model (game state and rules),
+    \c{GameScene.qml} and the entity files remain the view (rendering, animation, Felgo-specific
+    APIs).
+
+    \section1 Architecture Overview
+
+    Not everything can move to C++. Felgo's \l{https://felgo.com/doc/felgo-entitymanager/}{EntityManager},
+    \l{https://felgo.com/doc/felgo-circlecollider/}{CircleCollider}, and
+    \l{https://felgo.com/doc/felgo-movementanimation/}{MovementAnimation} are QML types with no
+    public C++ API for instantiation or collision callbacks. The following table summarises the split:
+
+    \table
+        \header
+            \li Responsibility
+            \li Where it lives
+            \li Why
+        \row
+            \li Score, game-running state
+            \li C++ (\c{GameController})
+            \li Pure state, no Felgo dependency
+        \row
+            \li Difficulty curve / spawn interval
+            \li C++ (\c{GameController})
+            \li Pure arithmetic, testable
+        \row
+            \li Movement vector calculation
+            \li C++ (\c{GameController})
+            \li Pure arithmetic, testable
+        \row
+            \li Spawn timing and position
+            \li C++ (\c{GameController})
+            \li Timer + arithmetic
+        \row
+            \li Entity creation/removal
+            \li QML (\c{EntityManager})
+            \li Felgo-internal, no C++ API
+        \row
+            \li Collision detection
+            \li QML (\c{CircleCollider})
+            \li Felgo-internal, no C++ API
+        \row
+            \li Movement animation playback
+            \li QML (\c{MovementAnimation})
+            \li Felgo-internal, no C++ API
+    \endtable
+
+    The result is a hybrid architecture: \c{GameController} owns all game rules and state,
+    while QML remains responsible for instantiating and animating Felgo entities based on
+    data and signals it receives from \c{GameController}.
+
+    \section1 Implementing GameController
+
+    \section2 Header
+
+    \c{src/GameController.hpp} declares the public interface QML will interact with. Properties
+    use \c{Q_PROPERTY} with a \c{NOTIFY} signal so QML bindings update automatically when the
+    underlying value changes. Methods that QML needs to call directly \unicode{0x2014} such as
+    \c{startGame()}, \c{gameOver()}, or \c{calculateMovementParameters()} \unicode{0x2014} are marked
+    \c{Q_INVOKABLE}. Without this macro, a method exists in C++ but is invisible to the QML
+    engine; \c{Q_INVOKABLE} exposes it through Qt's meta-object system so it can be called like
+    a regular JavaScript function, e.g. \c{gameController.startGame()} or
+    \c{gameController.calculateMovementParameters(x, y, destX, destY)}.
+
+    \code
+    class GameController : public QObject
+    {
+        Q_OBJECT
+
+        Q_PROPERTY(bool gameRunning     READ isGameRunning  NOTIFY gameRunningChanged)
+        Q_PROPERTY(unsigned int  score  READ score          NOTIFY scoreChanged)
+
+    public:
+        explicit GameController(QObject* parent = nullptr);
+
+        // property readers
+        bool isGameRunning() const { return m_gameRunning; }
+        unsigned int score() const { return m_score; }
+
+        // invokable game actions
+
+        // resets and (re)starts the game. Call from QML on mouse click.
+        Q_INVOKABLE void startGame();
+        // stops the game loop. Called internally or from QML on player death.
+        Q_INVOKABLE void gameOver();
+        // Increments score and recalculates difficulty.
+        Q_INVOKABLE void incrementScore();
+        // delay for game over to not accidentally dismiss the screen
+        Q_INVOKABLE bool isDelayActive() const { return m_delayTimer.isActive(); }
+
+        // set the player position for spawn calculation
+        Q_INVOKABLE void updatePlayerPosition(const qreal x, const qreal y, const qreal w, const qreal h);
+        // set scene dimensions for spawn calculation
+        Q_INVOKABLE void setSceneDimensions(const qreal w, const qreal h);
+
+        // calculates normalised direction vector from origin towards destination.
+        Q_INVOKABLE QVariantMap calculateMovementParameters(
+            qreal x, qreal y, qreal destX, qreal destY) const;
+
+    signals:
+        void gameRunningChanged();
+        void scoreChanged();
+
+        // emitted by the spawn timer to create enemies in QML's EntityManager.
+        void spawnEnemyRequested(const QVariantMap properties);
+
+    private:
+        // game state
+        bool m_gameRunning      = false;    // pause the game until player clicks
+        unsigned int m_score    = 0U;       // score dependent on how many enemies are shot
+
+        // constants
+        static constexpr int k_initEnemySpawnInterval = 500; // initial spawn interval for enemies in ms
+        static constexpr int k_minEnemySpawnInterval  = 200; // // fastest spawn interval for enemies in ms
+        static constexpr int k_difficultyStep    = 20;   //  spawn interval for enemies will be increased each difficultyStep score points
+        static constexpr int k_spawnAcceleration = 50;   // acceleration for spawning enemies each difficultyStep
+
+        static constexpr int k_delayInterval = 500;  // delay for game over to not accidentally dismiss the screen in ms
+
+        // scene dimensions (used for spawn calculation)
+        qreal m_sceneWidth  = 0.0;
+        qreal m_sceneHeight = 0.0;
+
+        // player position (used for spawn calculation)
+        qreal m_playerX = 0.0;
+        qreal m_playerY = 0.0;
+        qreal m_playerW = 0.0;
+        qreal m_playerH = 0.0;
+
+        // timers
+        QTimer m_delayTimer; // delay timer for game over to not accidentally dismiss the screen
+        QTimer m_spawnTimer; // spwaner for enemies
+
+        // triggered by spwan timer
+        void onSpawnTimerTriggered();
+
+        // private helper functions
+        void setGameRunning(const bool v);
+        void setScore(const unsigned int v);
+        void recalculateDifficulty();
+    };
+    \endcode
+
+    Note the two timers replace the two QML \c{Timer} elements from the original tutorial:
+    \c{m_spawnTimer} corresponds to the enemy spawner, \c{m_delayTimer} to the game-over
+    click-guard.
+
+    \section2 Implementation
+
+    The constructor wires up the spawn timer. Both timers' intervals are set once here;
+    \c{m_spawnTimer}'s interval is later adjusted dynamically by \c{recalculateDifficulty()}.
+
+    \code
+    GameController::GameController(QObject* parent)
+        : QObject(parent) {
+        // Delay timer: single-shot, guards against accidental restart clicks.
+        m_delayTimer.setSingleShot(true);
+        m_delayTimer.setInterval(k_delayInterval);
+
+        // Spawn timer: fires repeatedly while game is running.
+        // interval is updated dynamically in recalculateDifficulty().
+        m_spawnTimer.setInterval(k_initEnemySpawnInterval);
+        connect(&m_spawnTimer, &QTimer::timeout,
+                this, &GameController::onSpawnTimerTriggered);
+    }
+    \endcode
+
+    \c{startGame()} replaces the QML \c{resetGame()} logic for resetting score and restarting
+    the spawn timer:
+
+    \code
+    void GameController::startGame() {
+        setScore(0U); // reset score
+        setGameRunning(true); // reset state
+
+        // reset spawn timer
+        m_spawnTimer.setInterval(k_initEnemySpawnInterval);
+        m_spawnTimer.start();
+    }
+
+    void GameController::gameOver() {
+        setGameRunning(false);
+        m_spawnTimer.stop();
+        m_delayTimer.start();
+    }
+
+    void GameController::incrementScore() {
+        setScore(m_score + 1U);
+        recalculateDifficulty();
+    }
+    \endcode
+
+    \c{calculateMovementParameters()} is a direct C++ port of the JavaScript function from the
+    original tutorial \unicode{0x2014} same inputs, same output map, now type-checked and unit-testable:
+
+    \code
+    QVariantMap GameController::calculateMovementParameters(
+        qreal x, qreal y, qreal destX, qreal destY) const {
+        // calculate direction from origin towards destination
+        qreal dx = destX - x;
+        qreal dy = destY - y;
+        const qreal len = qSqrt(dx * dx + dy * dy);
+        dx /= len;
+        dy /= len;
+
+        // create properties for movement animation
+        // x/y: start position of bullet - player position moved slightly into direction of mouse click
+        // velocityX/Y: direction towards mouse position, used for moving the bullet
+        return QVariantMap{
+            {"x",         x},
+            {"y",         y},
+            {"velocityX", dx},
+            {"velocityY", dy}
+        };
+    }
+    \endcode
+
+    The spawn timer's \c{onSpawnTimerTriggered()} slot reproduces the random side-selection from
+    the original QML \c{Timer.onTriggered}, but uses \c{QRandomGenerator} instead of
+    \c{Math.random()} and emits a signal instead of calling \c{entityManager} directly:
+
+    \code
+    void GameController::onSpawnTimerTriggered() {
+        // enemies should appear on a random side, except at the bottom
+        const int side = static_cast<int>(
+            QRandomGenerator::global()->bounded(3));
+
+        qreal x = 0.0;
+        qreal y = 0.0;
+
+        switch (side) {
+        case 0: // top
+            x = QRandomGenerator::global()->generateDouble() * m_sceneWidth;
+            y = -m_playerW;
+            break;
+        case 1: // left
+            x = -m_playerW;
+            y = QRandomGenerator::global()->generateDouble() * m_sceneHeight;
+            break;
+        default: // right
+            x = m_sceneWidth + m_playerW;
+            y = QRandomGenerator::global()->generateDouble() * m_sceneHeight;
+            break;
+        }
+
+        // Aim at the centre of the player
+        const qreal destX = m_playerX + m_playerW / 2.0;
+        const qreal destY = m_playerY + m_playerH / 2.0;
+
+        emit spawnEnemyRequested(calculateMovementParameters(x, y, destX, destY));
+    }
+    \endcode
+
+    Finally, \c{recalculateDifficulty()} reproduces the difficulty formula from the original
+    QML \c{Timer}, applying the new interval directly to \c{m_spawnTimer}:
+
+    \code
+    void GameController::recalculateDifficulty() {
+        // calculate new spawn frequency (enemies spawn faster depending on score)
+        const int difficulty = qFloor(m_score / k_difficultyStep);
+        const int newInterval = qMax(k_minEnemySpawnInterval,
+                                     k_initEnemySpawnInterval - difficulty * k_spawnAcceleration);
+
+        if(newInterval != m_spawnTimer.interval())
+            m_spawnTimer.setInterval(newInterval);
+    }
+    \endcode
+
+    \section2 Property setters and NOTIFY signals
+
+    \c{m_gameRunning} and \c{m_score} are only ever written through \c{setGameRunning()} and
+    \c{setScore()}. Both follow the same pattern: update the member, then \c{emit} the
+    corresponding \c{NOTIFY} signal \unicode{0x2014} but only if the value actually changed.
+
+    \code
+    void GameController::setGameRunning(const bool v) {
+        if (m_gameRunning == v) return;
+        m_gameRunning = v;
+        emit gameRunningChanged();
+    }
+
+    void GameController::setScore(const unsigned int v) {
+        if (m_score == v) return;
+        m_score = v;
+        emit scoreChanged();
+    }
+    \endcode
+
+    This is not boilerplate that can be skipped. QML bindings such as
+
+    \code
+    secondaryText: "score: " + gameController.score
+    \endcode
+
+    and
+
+    \code
+    visible: !gameController.gameRunning
+    \endcode
+
+    only re-evaluate when the property's \c{NOTIFY} signal fires. Without
+    \c{emit gameRunningChanged()} / \c{emit scoreChanged()}, the values exposed to QML via
+    \c{Q_PROPERTY} would still be readable through \c{isGameRunning()} and \c{score()}, but the
+    bindings above would never update after their initial evaluation \unicode{0x2014} the score text
+    and the pause/game-over overlay would freeze at their first values.
+
+    The early-return guard (\c{if (m_score == v) return;}) avoids emitting redundant signals
+    when a setter is called with a value that hasn't changed, which matters here because
+    \c{startGame()} calls \c{setScore(0U)} on every restart, and \c{incrementScore()} calls
+    \c{setScore(m_score + 1U)} on every hit.
+
+    \section2 Registering GameController in QML
+
+    Unlike \c{EntityBase}-derived QML types, \c{GameController} is not registered as an
+    instantiable QML type. Instead, a single \c{GameController} instance is created in
+    \c{main.cpp} and exposed to the whole QML engine as a
+    \l{https://doc.qt.io/qt-6/qqmlcontext.html#setContextProperty}{context property}:
+
+    \code
+    // make GameController object available in QML with name "gameController"
+    GameController controller;
+    engine.rootContext()->setContextProperty("gameController", &controller);
+    \endcode
+
+    This makes \c{gameController} available as a global identifier in every QML file loaded by
+    this engine \unicode{0x2014} \c{GameScene.qml} and all entity files reference it directly, without an
+    \c{import} statement and without declaring a \c{GameController {}} element anywhere in QML.
+
+    \section1 Updating GameScene.qml
+
+    \section2 Scene setup
+
+    \c{GameScene.qml} no longer declares \c{gameRunning}, \c{score}, and the various interval
+    properties itself \unicode{0x2014} these now live in the \c{gameController} context property set up in
+    \c{main.cpp}. On startup, the scene dimensions are passed to \c{GameController} once via
+    \c{Component.onCompleted}:
+
+    \code
+    Scene {
+        id: gameScene
+
+        // init, set scene dimension for spawn calculation
+        Component.onCompleted: {
+            gameController.setSceneDimensions(
+                gameWindowAnchorItem.width,
+                gameWindowAnchorItem.height)
+        }
+
+        PhysicsWorld { } // no need to set gravity, the collider is not physics-based
+
+        // background image
+        Image {
+            anchors.fill: gameWindowAnchorItem
+            fillMode: Image.PreserveAspectCrop
+            source: "../assets/img/background.png"
+        }
+        // ...
+    }
+    \endcode
+
+    \section2 Score and overlay bindings
+
+    The score display and pause/game-over overlay now bind directly to \c{GameController}'s
+    \c{NOTIFY}-enabled properties:
+
+    \code
+    OverlayText {
+        id: scoreText
+        anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
+        y: 10
+        secondaryText: "score: " + gameController.score
+    }
+
+    OverlayText {
+        id: overlayText
+        anchors.centerIn: gameWindowAnchorItem
+        visible: !gameController.gameRunning
+
+        primaryText: "pause"
+        secondaryText: "click to start"
+    }
+    \endcode
+
+    Because \c{gameRunningChanged()} and \c{scoreChanged()} are emitted from C++, these bindings
+    re-evaluate automatically \unicode{0x2014} no manual property assignment needed.
+
+    \section2 Reacting to game-over: renaming the overlay text
+
+    In the original tutorial, \c{resetGame()} directly assigned the "GAME OVER" text. Now that
+    \c{gameOver()} is triggered from C++, QML reacts to the resulting \c{gameRunningChanged()}
+    signal via \c{Connections}:
+
+    \code
+    Connections {
+        target: gameController
+
+        // reaction to gameOver() to change overlay-text for next restart.
+        function onGameRunningChanged() {
+            if (!gameController.gameRunning) {
+                // rename overlay text for next game over
+                overlayText.primaryText   = "GAME OVER"
+                overlayText.secondaryText = "click to restart"
+            }
+        }
+
+        // create enemies
+        function onSpawnEnemyRequested(properties) {
+            var enemyID = entityManager.createEntityFromUrlWithProperties(
+                Qt.resolvedUrl("entities/Enemy.qml"), properties)
+            var entity = entityManager.getEntityById(enemyID)
+            entity.active = Qt.binding(function() { return gameController.gameRunning })
+        }
+    }
+    \endcode
+
+    \section2 Spawning enemies: from QML Timer to C++ signal
+
+    The original QML \c{Timer.onTriggered} block \unicode{0x2014} which calculated the spawn position and
+    called \c{entityManager.createEntityFromUrlWithProperties()} directly \unicode{0x2014} is replaced by the
+    \c{onSpawnEnemyRequested} handler shown above. \c{GameController} performs the calculation
+    and emits \c{spawnEnemyRequested(properties)}; QML's only remaining job is the actual Felgo
+    entity instantiation.
+
+    The \c{Qt.binding()} call deserves explanation: \c{createEntityFromUrlWithProperties()} only
+    sets properties \e{once}, at creation time \unicode{0x2014} it cannot establish a live binding.
+    \c{Qt.binding(function() {...})} creates that binding retroactively on the newly created
+    entity, so its \c{active} property continues to track \c{gameController.gameRunning} for its
+    entire lifetime. The same pattern is applied to bullets, see below.
+
+    \section2 Shooting: delegating the vector math
+
+    The \c{onPressed} handler now delegates the direction calculation to
+    \c{gameController.calculateMovementParameters()} instead of a local JavaScript function.
+    The same \c{Qt.binding()} pattern used for enemies is applied to bullets:
+
+    \code
+    MouseArea {
+        anchors.fill: gameWindowAnchorItem
+        onPressed: (mouse)=> {
+            if(gameController.gameRunning){
+                var movementProperties = gameController.calculateMovementParameters(
+                    player.x + player.width/2,
+                    player.y + player.height/2,
+                    mouse.x,
+                    mouse.y)
+
+                movementProperties.x += 22*movementProperties.velocityX - 5
+                movementProperties.y += 22*movementProperties.velocityY - 5
+
+                var bulletID = entityManager.createEntityFromUrlWithProperties(
+                    Qt.resolvedUrl("entities/Bullet.qml"), movementProperties)
+                var entity = entityManager.getEntityById(bulletID)
+                entity.enemyHit.connect(function() { gameController.incrementScore() })
+                entity.active = Qt.binding(function() { return gameController.gameRunning })
+            }
+            else if(!gameController.isDelayActive()) {
+                resetGame()
+            }
+        }
+    }
+    \endcode
+
+    Two things changed compared to the original \c{score++}: incrementing the score now goes
+    through \c{gameController.incrementScore()}, which also triggers the difficulty
+    recalculation in C++. And \c{entity.active} is bound the same way as for enemies.
+
+    \section2 Resetting the game
+
+    \c{resetGame()} is now minimal \unicode{0x2014} entity cleanup stays in QML (Felgo API), while score
+    reset and restarting the spawn timer move to \c{gameController.startGame()}:
+
+    \code
+    function resetGame() {
+        // delete all enemies and bullets
+        entityManager.removeEntitiesByFilter(["enemy","bullet"])
+
+        // (re)start game
+        gameController.startGame()
+    }
+    \endcode
+
+    \section1 Updating the entity files
+
+    \section2 The active property pattern
+
+    \c{Player}, \c{Enemy}, and \c{Bullet} no longer reference \c{gameScene.gameRunning}
+    directly. Each entity instead declares its own \c{active} property, defaulting to \c{false}:
+
+    \code
+    property bool active: false
+    \endcode
+
+    All \c{running:} bindings inside the entity (on \c{GameSpriteSequence} and
+    \c{MovementAnimation}) reference this local property instead of the scene:
+
+    \code
+    GameSpriteSequence {
+        id: spriteSequence
+        running: active
+        // ...
+    }
+    \endcode
+
+    This decouples each entity file from the scene's internal structure: an entity file makes
+    no assumptions about what its parent is called or how it tracks game state. \c{Player} is
+    instantiated directly in \c{GameScene.qml} with a normal property binding:
+
+    \code
+    Player {
+        id: player
+        active: gameController.gameRunning
+        // ...
+    }
+    \endcode
+
+    \c{Enemy} and \c{Bullet}, being created dynamically via \c{EntityManager}, receive their
+    \c{active} binding retroactively via \c{Qt.binding()} as shown in the previous section.
+
+    \section2 Player: position reporting
+
+    \c{Player.qml} additionally reports its initial position to \c{GameController} on creation,
+    so the spawn calculation has a valid target from the start:
+
+    \code
+    Player {
+        id: player
+        active: gameController.gameRunning
+        anchors.horizontalCenter: gameWindowAnchorItem.horizontalCenter
+        y: gameWindowAnchorItem.height - height - 10
+
+        onHitByEnemy: {
+            gameController.gameOver()
+        }
+
+        Component.onCompleted: gameController.updatePlayerPosition(
+                                   player.x, player.y, player.width, player.height)
+    }
+    \endcode
+
+    \note The original tutorial's delay timer is now backed entirely by
+    \c{GameController::m_delayTimer}, exposed via \c{isDelayActive()}. There is no separate QML
+    \c{delayTimer} \unicode{0x2014} \c{gameController.gameOver()} starts the C++ delay timer internally,
+    and the \c{MouseArea}'s \c{else if(!gameController.isDelayActive())} branch (see
+    \l{Shooting: delegating the vector math}) consults it directly.
+
+    \section2 Enemy and Bullet: no further changes
+
+    \c{Enemy.qml} and \c{Bullet.qml} otherwise remain structurally identical to the original
+    tutorial \unicode{0x2014} \c{velocityX}/\c{velocityY}/\c{speed} properties, \c{MovementAnimation},
+    and \c{CircleCollider} setup are unchanged, aside from \c{running: active} replacing
+    \c{running: gameScene.gameRunning}.
+
+    \section1 What stays in QML, and why
+
+    \table
+        \header
+            \li Element
+            \li Reason it cannot move to C++
+        \row
+            \li \c{EntityManager}
+            \li Felgo-internal entity lifecycle management; no public C++ API for entity
+                creation/removal
+        \row
+            \li \c{CircleCollider} / \c{fixture.onBeginContact}
+            \li Felgo's physics-collision callbacks are QML-only
+        \row
+            \li \c{MovementAnimation}
+            \li Felgo QML animation type; playback is driven by the QML scene graph
+        \row
+            \li \c{Qt.binding()} calls
+            \li Required because \c{createEntityFromUrlWithProperties()} only assigns properties
+                once; live bindings must be established after creation
+    \endtable
+
+    \section1 Result
+
+    \c{GameController} now owns all game state, the difficulty curve, spawn timing, and movement
+    math \unicode{0x2014} all of it unit-testable with QTest, independent of any running QML engine. QML
+    retains only Felgo-specific entity management, rendering, and the thin \c{active}-property
+    glue connecting the two.
+
+    Compare the two versions directly on GitHub:
+    \list
+        \li \l{https://github.com/lasser-j/game-example-with-felgo/tree/v1.0-qml-only}{v1.0-qml-only}
+            \unicode{0x2013} pure QML/JS implementation
+        \li \l{https://github.com/lasser-j/game-example-with-felgo/tree/v2.0-cpp-refactor}{v2.0-cpp-refactor}
+            \unicode{0x2013} game logic extracted to \c{GameController}
+    \endlist
+*/

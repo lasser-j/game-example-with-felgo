@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<!-- refactoring.qdoc -->
+  <title>Refactoring to C++: A Model/View Architecture with GameController | FelgoGameTutorial</title>
+<link rel="stylesheet" type="text/css" href="style/style.css" /></head>
+<body>
+  <link rel="prev" href="how-to-create-a-simple-game-with-felgo.html" />
+<p class="naviNextPrevious headerNavi">
+<a class="prevPage" href="how-to-create-a-simple-game-with-felgo.html">How to build a simple game with Felgo</a>
+</p>
+<div class="sidebar">
+<div class="toc">
+<h3 id="toc">Contents</h3>
+<ul>
+<li class="level1"><a href="#motivation">Motivation</a></li>
+<li class="level1"><a href="#architecture-overview">Architecture Overview</a></li>
+<li class="level1"><a href="#implementing-gamecontroller">Implementing GameController</a></li>
+<li class="level2"><a href="#header">Header</a></li>
+<li class="level2"><a href="#implementation">Implementation</a></li>
+<li class="level2"><a href="#property-setters-and-notify-signals">Property setters and NOTIFY signals</a></li>
+<li class="level2"><a href="#registering-gamecontroller-in-qml">Registering GameController in QML</a></li>
+<li class="level1"><a href="#updating-gamescene-qml">Updating GameScene.qml</a></li>
+<li class="level2"><a href="#scene-setup">Scene setup</a></li>
+<li class="level2"><a href="#score-and-overlay-bindings">Score and overlay bindings</a></li>
+<li class="level2"><a href="#reacting-to-game-over-renaming-the-overlay-text">Reacting to game-over: renaming the overlay text</a></li>
+<li class="level2"><a href="#spawning-enemies-from-qml-timer-to-c-signal">Spawning enemies: from QML Timer to C++ signal</a></li>
+<li class="level2"><a href="#shooting-delegating-the-vector-math">Shooting: delegating the vector math</a></li>
+<li class="level2"><a href="#resetting-the-game">Resetting the game</a></li>
+<li class="level1"><a href="#updating-the-entity-files">Updating the entity files</a></li>
+<li class="level2"><a href="#the-active-property-pattern">The active property pattern</a></li>
+<li class="level2"><a href="#player-position-reporting">Player: position reporting</a></li>
+<li class="level2"><a href="#enemy-and-bullet-no-further-changes">Enemy and Bullet: no further changes</a></li>
+<li class="level1"><a href="#what-stays-in-qml-and-why">What stays in QML, and why</a></li>
+<li class="level1"><a href="#result">Result</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">Refactoring to C++: A Model/View Architecture with GameController</h1>
+<!-- $$$refactoring-cpp-model-view-description -->
+<div class="descr" id="details">
+<p>This tutorial builds on <a href="how-to-create-a-simple-game-with-felgo.html">the original Invasion tutorial</a>. If you haven't built the QML-only version yet, start there first. The complete source code for this version is available at <a href="https://github.com/lasser-j/game-example-with-felgo/tree/v2.0-cpp-refactor">GitHub (tag v2.0-cpp-refactor)</a>, the original QML-only version remains available at <a href="https://github.com/lasser-j/game-example-with-felgo/tree/v1.0-qml-only">tag v1.0-qml-only</a>.</p>
+<h2 id="motivation">Motivation</h2>
+<p>The original tutorial implements all game logic directly in QML/JavaScript: the score, the difficulty curve, the spawn timer, and the movement-vector calculation all live as properties and functions on <code translate="no">GameScene</code>. This is a fast way to prototype a game, but it has downsides once a project grows:</p>
+<ul>
+<li>Game state and UI state are mixed in the same file</li>
+<li>JavaScript logic cannot be unit-tested without a running QML engine</li>
+<li>There is no clear ownership boundary between &quot;what the game does&quot; and &quot;how it looks&quot;</li>
+</ul>
+<p>In this tutorial, we extract the game logic into a C++ class, <code translate="no">GameController</code>, following a Model/View separation: <code translate="no">GameController</code> is the model (game state and rules), <code translate="no">GameScene.qml</code> and the entity files remain the view (rendering, animation, Felgo-specific APIs).</p>
+<h2 id="architecture-overview">Architecture Overview</h2>
+<p>Not everything can move to C++. Felgo's <a href="https://felgo.com/doc/felgo-entitymanager/">EntityManager</a>, <a href="https://felgo.com/doc/felgo-circlecollider/">CircleCollider</a>, and <a href="https://felgo.com/doc/felgo-movementanimation/">MovementAnimation</a> are QML types with no public C++ API for instantiation or collision callbacks. The following table summarises the split:</p>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Responsibility</th><th >Where it lives</th><th >Why</th></tr></thead>
+<tr valign="top" class="odd"><td >Score, game-running state</td><td >C++ (<code translate="no">GameController</code>)</td><td >Pure state, no Felgo dependency</td></tr>
+<tr valign="top" class="even"><td >Difficulty curve / spawn interval</td><td >C++ (<code translate="no">GameController</code>)</td><td >Pure arithmetic, testable</td></tr>
+<tr valign="top" class="odd"><td >Movement vector calculation</td><td >C++ (<code translate="no">GameController</code>)</td><td >Pure arithmetic, testable</td></tr>
+<tr valign="top" class="even"><td >Spawn timing and position</td><td >C++ (<code translate="no">GameController</code>)</td><td >Timer + arithmetic</td></tr>
+<tr valign="top" class="odd"><td >Entity creation/removal</td><td >QML (<code translate="no">EntityManager</code>)</td><td >Felgo-internal, no C++ API</td></tr>
+<tr valign="top" class="even"><td >Collision detection</td><td >QML (<code translate="no">CircleCollider</code>)</td><td >Felgo-internal, no C++ API</td></tr>
+<tr valign="top" class="odd"><td >Movement animation playback</td><td >QML (<code translate="no">MovementAnimation</code>)</td><td >Felgo-internal, no C++ API</td></tr>
+</table></div>
+<p>The result is a hybrid architecture: <code translate="no">GameController</code> owns all game rules and state, while QML remains responsible for instantiating and animating Felgo entities based on data and signals it receives from <code translate="no">GameController</code>.</p>
+<h2 id="implementing-gamecontroller">Implementing GameController</h2>
+<h3 id="header">Header</h3>
+<p><code translate="no">src/GameController.hpp</code> declares the public interface QML will interact with. Properties use <code translate="no">Q_PROPERTY</code> with a <code translate="no">NOTIFY</code> signal so QML bindings update automatically when the underlying value changes. Methods that QML needs to call directly &mdash; such as <code translate="no">startGame()</code>, <code translate="no">gameOver()</code>, or <code translate="no">calculateMovementParameters()</code> &mdash; are marked <code translate="no">Q_INVOKABLE</code>. Without this macro, a method exists in C++ but is invisible to the QML engine; <code translate="no">Q_INVOKABLE</code> exposes it through Qt's meta-object system so it can be called like a regular JavaScript function, e.g. <code translate="no">gameController.startGame()</code> or <code translate="no">gameController.calculateMovementParameters(x, y, destX, destY)</code>.</p>
+<pre class="cpp" translate="no"><span class="keyword">class</span> GameController : <span class="keyword">public</span> <span class="type">QObject</span>
+{
+    Q_OBJECT
+
+    Q_PROPERTY(<span class="type">bool</span> gameRunning     READ isGameRunning  NOTIFY gameRunningChanged)
+    Q_PROPERTY(<span class="type">unsigned</span> <span class="type">int</span>  score  READ score          NOTIFY scoreChanged)
+
+<span class="keyword">public</span>:
+    <span class="keyword">explicit</span> GameController(<span class="type">QObject</span><span class="operator">*</span> parent <span class="operator">=</span> nullptr);
+
+    <span class="comment">// property readers</span>
+    <span class="type">bool</span> isGameRunning() <span class="keyword">const</span> { <span class="keyword">return</span> m_gameRunning; }
+    <span class="type">unsigned</span> <span class="type">int</span> score() <span class="keyword">const</span> { <span class="keyword">return</span> m_score; }
+
+    <span class="comment">// invokable game actions</span>
+
+    <span class="comment">// resets and (re)starts the game. Call from QML on mouse click.</span>
+    Q_INVOKABLE <span class="type">void</span> startGame();
+    <span class="comment">// stops the game loop. Called internally or from QML on player death.</span>
+    Q_INVOKABLE <span class="type">void</span> gameOver();
+    <span class="comment">// Increments score and recalculates difficulty.</span>
+    Q_INVOKABLE <span class="type">void</span> incrementScore();
+    <span class="comment">// delay for game over to not accidentally dismiss the screen</span>
+    Q_INVOKABLE <span class="type">bool</span> isDelayActive() <span class="keyword">const</span> { <span class="keyword">return</span> m_delayTimer<span class="operator">.</span>isActive(); }
+
+    <span class="comment">// set the player position for spawn calculation</span>
+    Q_INVOKABLE <span class="type">void</span> updatePlayerPosition(<span class="keyword">const</span> <span class="type">qreal</span> x<span class="operator">,</span> <span class="keyword">const</span> <span class="type">qreal</span> y<span class="operator">,</span> <span class="keyword">const</span> <span class="type">qreal</span> w<span class="operator">,</span> <span class="keyword">const</span> <span class="type">qreal</span> h);
+    <span class="comment">// set scene dimensions for spawn calculation</span>
+    Q_INVOKABLE <span class="type">void</span> setSceneDimensions(<span class="keyword">const</span> <span class="type">qreal</span> w<span class="operator">,</span> <span class="keyword">const</span> <span class="type">qreal</span> h);
+
+    <span class="comment">// calculates normalised direction vector from origin towards destination.</span>
+    Q_INVOKABLE <span class="type">QVariantMap</span> calculateMovementParameters(
+        <span class="type">qreal</span> x<span class="operator">,</span> <span class="type">qreal</span> y<span class="operator">,</span> <span class="type">qreal</span> destX<span class="operator">,</span> <span class="type">qreal</span> destY) <span class="keyword">const</span>;
+
+<span class="keyword">signals</span>:
+    <span class="type">void</span> gameRunningChanged();
+    <span class="type">void</span> scoreChanged();
+
+    <span class="comment">// emitted by the spawn timer to create enemies in QML's EntityManager.</span>
+    <span class="type">void</span> spawnEnemyRequested(<span class="keyword">const</span> <span class="type">QVariantMap</span> properties);
+
+<span class="keyword">private</span>:
+    <span class="comment">// game state</span>
+    <span class="type">bool</span> m_gameRunning      <span class="operator">=</span> <span class="keyword">false</span>;    <span class="comment">// pause the game until player clicks</span>
+    <span class="type">unsigned</span> <span class="type">int</span> m_score    <span class="operator">=</span> <span class="number">0U</span>;       <span class="comment">// score dependent on how many enemies are shot</span>
+
+    <span class="comment">// constants</span>
+    <span class="keyword">static</span> constexpr <span class="type">int</span> k_initEnemySpawnInterval <span class="operator">=</span> <span class="number">500</span>; <span class="comment">// initial spawn interval for enemies in ms</span>
+    <span class="keyword">static</span> constexpr <span class="type">int</span> k_minEnemySpawnInterval  <span class="operator">=</span> <span class="number">200</span>; <span class="comment">// // fastest spawn interval for enemies in ms</span>
+    <span class="keyword">static</span> constexpr <span class="type">int</span> k_difficultyStep    <span class="operator">=</span> <span class="number">20</span>;   <span class="comment">//  spawn interval for enemies will be increased each difficultyStep score points</span>
+    <span class="keyword">static</span> constexpr <span class="type">int</span> k_spawnAcceleration <span class="operator">=</span> <span class="number">50</span>;   <span class="comment">// acceleration for spawning enemies each difficultyStep</span>
+
+    <span class="keyword">static</span> constexpr <span class="type">int</span> k_delayInterval <span class="operator">=</span> <span class="number">500</span>;  <span class="comment">// delay for game over to not accidentally dismiss the screen in ms</span>
+
+    <span class="comment">// scene dimensions (used for spawn calculation)</span>
+    <span class="type">qreal</span> m_sceneWidth  <span class="operator">=</span> <span class="number">0.0</span>;
+    <span class="type">qreal</span> m_sceneHeight <span class="operator">=</span> <span class="number">0.0</span>;
+
+    <span class="comment">// player position (used for spawn calculation)</span>
+    <span class="type">qreal</span> m_playerX <span class="operator">=</span> <span class="number">0.0</span>;
+    <span class="type">qreal</span> m_playerY <span class="operator">=</span> <span class="number">0.0</span>;
+    <span class="type">qreal</span> m_playerW <span class="operator">=</span> <span class="number">0.0</span>;
+    <span class="type">qreal</span> m_playerH <span class="operator">=</span> <span class="number">0.0</span>;
+
+    <span class="comment">// timers</span>
+    <span class="type">QTimer</span> m_delayTimer; <span class="comment">// delay timer for game over to not accidentally dismiss the screen</span>
+    <span class="type">QTimer</span> m_spawnTimer; <span class="comment">// spwaner for enemies</span>
+
+    <span class="comment">// triggered by spwan timer</span>
+    <span class="type">void</span> onSpawnTimerTriggered();
+
+    <span class="comment">// private helper functions</span>
+    <span class="type">void</span> setGameRunning(<span class="keyword">const</span> <span class="type">bool</span> v);
+    <span class="type">void</span> setScore(<span class="keyword">const</span> <span class="type">unsigned</span> <span class="type">int</span> v);
+    <span class="type">void</span> recalculateDifficulty();
+};</pre>
+<p>Note the two timers replace the two QML <code translate="no">Timer</code> elements from the original tutorial: <code translate="no">m_spawnTimer</code> corresponds to the enemy spawner, <code translate="no">m_delayTimer</code> to the game-over click-guard.</p>
+<h3 id="implementation">Implementation</h3>
+<p>The constructor wires up the spawn timer. Both timers' intervals are set once here; <code translate="no">m_spawnTimer</code>'s interval is later adjusted dynamically by <code translate="no">recalculateDifficulty()</code>.</p>
+<pre class="cpp" translate="no">GameController<span class="operator">::</span>GameController(<span class="type">QObject</span><span class="operator">*</span> parent)
+    : <span class="type">QObject</span>(parent) {
+    <span class="comment">// Delay timer: single-shot, guards against accidental restart clicks.</span>
+    m_delayTimer<span class="operator">.</span>setSingleShot(<span class="keyword">true</span>);
+    m_delayTimer<span class="operator">.</span>setInterval(k_delayInterval);
+
+    <span class="comment">// Spawn timer: fires repeatedly while game is running.</span>
+    <span class="comment">// interval is updated dynamically in recalculateDifficulty().</span>
+    m_spawnTimer<span class="operator">.</span>setInterval(k_initEnemySpawnInterval);
+    connect(<span class="operator">&amp;</span>m_spawnTimer<span class="operator">,</span> <span class="operator">&amp;</span><span class="type">QTimer</span><span class="operator">::</span>timeout<span class="operator">,</span>
+            <span class="keyword">this</span><span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>onSpawnTimerTriggered);
+}</pre>
+<p><code translate="no">startGame()</code> replaces the QML <code translate="no">resetGame()</code> logic for resetting score and restarting the spawn timer:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> GameController<span class="operator">::</span>startGame() {
+    setScore(<span class="number">0U</span>); <span class="comment">// reset score</span>
+    setGameRunning(<span class="keyword">true</span>); <span class="comment">// reset state</span>
+
+    <span class="comment">// reset spawn timer</span>
+    m_spawnTimer<span class="operator">.</span>setInterval(k_initEnemySpawnInterval);
+    m_spawnTimer<span class="operator">.</span>start();
+}
+
+<span class="type">void</span> GameController<span class="operator">::</span>gameOver() {
+    setGameRunning(<span class="keyword">false</span>);
+    m_spawnTimer<span class="operator">.</span>stop();
+    m_delayTimer<span class="operator">.</span>start();
+}
+
+<span class="type">void</span> GameController<span class="operator">::</span>incrementScore() {
+    setScore(m_score <span class="operator">+</span> <span class="number">1U</span>);
+    recalculateDifficulty();
+}</pre>
+<p><code translate="no">calculateMovementParameters()</code> is a direct C++ port of the JavaScript function from the original tutorial &mdash; same inputs, same output map, now type-checked and unit-testable:</p>
+<pre class="cpp" translate="no"><span class="type">QVariantMap</span> GameController<span class="operator">::</span>calculateMovementParameters(
+    <span class="type">qreal</span> x<span class="operator">,</span> <span class="type">qreal</span> y<span class="operator">,</span> <span class="type">qreal</span> destX<span class="operator">,</span> <span class="type">qreal</span> destY) <span class="keyword">const</span> {
+    <span class="comment">// calculate direction from origin towards destination</span>
+    <span class="type">qreal</span> dx <span class="operator">=</span> destX <span class="operator">-</span> x;
+    <span class="type">qreal</span> dy <span class="operator">=</span> destY <span class="operator">-</span> y;
+    <span class="keyword">const</span> <span class="type">qreal</span> len <span class="operator">=</span> qSqrt(dx <span class="operator">*</span> dx <span class="operator">+</span> dy <span class="operator">*</span> dy);
+    dx <span class="operator">/</span><span class="operator">=</span> len;
+    dy <span class="operator">/</span><span class="operator">=</span> len;
+
+    <span class="comment">// create properties for movement animation</span>
+    <span class="comment">// x/y: start position of bullet - player position moved slightly into direction of mouse click</span>
+    <span class="comment">// velocityX/Y: direction towards mouse position, used for moving the bullet</span>
+    <span class="keyword">return</span> <span class="type">QVariantMap</span>{
+        {<span class="string">&quot;x&quot;</span><span class="operator">,</span>         x}<span class="operator">,</span>
+        {<span class="string">&quot;y&quot;</span><span class="operator">,</span>         y}<span class="operator">,</span>
+        {<span class="string">&quot;velocityX&quot;</span><span class="operator">,</span> dx}<span class="operator">,</span>
+        {<span class="string">&quot;velocityY&quot;</span><span class="operator">,</span> dy}
+    };
+}</pre>
+<p>The spawn timer's <code translate="no">onSpawnTimerTriggered()</code> slot reproduces the random side-selection from the original QML <code translate="no">Timer.onTriggered</code>, but uses <code translate="no">QRandomGenerator</code> instead of <code translate="no">Math.random()</code> and emits a signal instead of calling <code translate="no">entityManager</code> directly:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> GameController<span class="operator">::</span>onSpawnTimerTriggered() {
+    <span class="comment">// enemies should appear on a random side, except at the bottom</span>
+    <span class="keyword">const</span> <span class="type">int</span> side <span class="operator">=</span> <span class="keyword">static_cast</span><span class="operator">&lt;</span><span class="type">int</span><span class="operator">&gt;</span>(
+        <span class="type">QRandomGenerator</span><span class="operator">::</span>global()<span class="operator">-</span><span class="operator">&gt;</span>bounded(<span class="number">3</span>));
+
+    <span class="type">qreal</span> x <span class="operator">=</span> <span class="number">0.0</span>;
+    <span class="type">qreal</span> y <span class="operator">=</span> <span class="number">0.0</span>;
+
+    <span class="keyword">switch</span> (side) {
+    <span class="keyword">case</span> <span class="number">0</span>: <span class="comment">// top</span>
+        x <span class="operator">=</span> <span class="type">QRandomGenerator</span><span class="operator">::</span>global()<span class="operator">-</span><span class="operator">&gt;</span>generateDouble() <span class="operator">*</span> m_sceneWidth;
+        y <span class="operator">=</span> <span class="operator">-</span>m_playerW;
+        <span class="keyword">break</span>;
+    <span class="keyword">case</span> <span class="number">1</span>: <span class="comment">// left</span>
+        x <span class="operator">=</span> <span class="operator">-</span>m_playerW;
+        y <span class="operator">=</span> <span class="type">QRandomGenerator</span><span class="operator">::</span>global()<span class="operator">-</span><span class="operator">&gt;</span>generateDouble() <span class="operator">*</span> m_sceneHeight;
+        <span class="keyword">break</span>;
+    <span class="keyword">default</span>: <span class="comment">// right</span>
+        x <span class="operator">=</span> m_sceneWidth <span class="operator">+</span> m_playerW;
+        y <span class="operator">=</span> <span class="type">QRandomGenerator</span><span class="operator">::</span>global()<span class="operator">-</span><span class="operator">&gt;</span>generateDouble() <span class="operator">*</span> m_sceneHeight;
+        <span class="keyword">break</span>;
+    }
+
+    <span class="comment">// Aim at the centre of the player</span>
+    <span class="keyword">const</span> <span class="type">qreal</span> destX <span class="operator">=</span> m_playerX <span class="operator">+</span> m_playerW <span class="operator">/</span> <span class="number">2.0</span>;
+    <span class="keyword">const</span> <span class="type">qreal</span> destY <span class="operator">=</span> m_playerY <span class="operator">+</span> m_playerH <span class="operator">/</span> <span class="number">2.0</span>;
+
+    <span class="keyword">emit</span> spawnEnemyRequested(calculateMovementParameters(x<span class="operator">,</span> y<span class="operator">,</span> destX<span class="operator">,</span> destY));
+}</pre>
+<p>Finally, <code translate="no">recalculateDifficulty()</code> reproduces the difficulty formula from the original QML <code translate="no">Timer</code>, applying the new interval directly to <code translate="no">m_spawnTimer</code>:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> GameController<span class="operator">::</span>recalculateDifficulty() {
+    <span class="comment">// calculate new spawn frequency (enemies spawn faster depending on score)</span>
+    <span class="keyword">const</span> <span class="type">int</span> difficulty <span class="operator">=</span> qFloor(m_score <span class="operator">/</span> k_difficultyStep);
+    <span class="keyword">const</span> <span class="type">int</span> newInterval <span class="operator">=</span> qMax(k_minEnemySpawnInterval<span class="operator">,</span>
+                                 k_initEnemySpawnInterval <span class="operator">-</span> difficulty <span class="operator">*</span> k_spawnAcceleration);
+
+    <span class="keyword">if</span>(newInterval <span class="operator">!</span><span class="operator">=</span> m_spawnTimer<span class="operator">.</span>interval())
+        m_spawnTimer<span class="operator">.</span>setInterval(newInterval);
+}</pre>
+<h3 id="property-setters-and-notify-signals">Property setters and NOTIFY signals</h3>
+<p><code translate="no">m_gameRunning</code> and <code translate="no">m_score</code> are only ever written through <code translate="no">setGameRunning()</code> and <code translate="no">setScore()</code>. Both follow the same pattern: update the member, then <code translate="no">emit</code> the corresponding <code translate="no">NOTIFY</code> signal &mdash; but only if the value actually changed.</p>
+<pre class="cpp" translate="no"><span class="type">void</span> GameController<span class="operator">::</span>setGameRunning(<span class="keyword">const</span> <span class="type">bool</span> v) {
+    <span class="keyword">if</span> (m_gameRunning <span class="operator">=</span><span class="operator">=</span> v) <span class="keyword">return</span>;
+    m_gameRunning <span class="operator">=</span> v;
+    <span class="keyword">emit</span> gameRunningChanged();
+}
+
+<span class="type">void</span> GameController<span class="operator">::</span>setScore(<span class="keyword">const</span> <span class="type">unsigned</span> <span class="type">int</span> v) {
+    <span class="keyword">if</span> (m_score <span class="operator">=</span><span class="operator">=</span> v) <span class="keyword">return</span>;
+    m_score <span class="operator">=</span> v;
+    <span class="keyword">emit</span> scoreChanged();
+}</pre>
+<p>This is not boilerplate that can be skipped. QML bindings such as</p>
+<pre class="cpp" translate="no">secondaryText: <span class="string">&quot;score: &quot;</span> <span class="operator">+</span> gameController<span class="operator">.</span>score</pre>
+<p>and</p>
+<pre class="cpp" translate="no">visible: <span class="operator">!</span>gameController<span class="operator">.</span>gameRunning</pre>
+<p>only re-evaluate when the property's <code translate="no">NOTIFY</code> signal fires. Without <code translate="no">emit gameRunningChanged()</code> / <code translate="no">emit scoreChanged()</code>, the values exposed to QML via <code translate="no">Q_PROPERTY</code> would still be readable through <code translate="no">isGameRunning()</code> and <code translate="no">score()</code>, but the bindings above would never update after their initial evaluation &mdash; the score text and the pause/game-over overlay would freeze at their first values.</p>
+<p>The early-return guard (<code translate="no">if (m_score == v) return;</code>) avoids emitting redundant signals when a setter is called with a value that hasn't changed, which matters here because <code translate="no">startGame()</code> calls <code translate="no">setScore(0U)</code> on every restart, and <code translate="no">incrementScore()</code> calls <code translate="no">setScore(m_score + 1U)</code> on every hit.</p>
+<h3 id="registering-gamecontroller-in-qml">Registering GameController in QML</h3>
+<p>Unlike <code translate="no">EntityBase</code>-derived QML types, <code translate="no">GameController</code> is not registered as an instantiable QML type. Instead, a single <code translate="no">GameController</code> instance is created in <code translate="no">main.cpp</code> and exposed to the whole QML engine as a <a href="https://doc.qt.io/qt-6/qqmlcontext.html#setContextProperty">context property</a>:</p>
+<pre class="cpp" translate="no"><span class="comment">// make GameController object available in QML with name &quot;gameController&quot;</span>
+GameController controller;
+engine<span class="operator">.</span>rootContext()<span class="operator">-</span><span class="operator">&gt;</span>setContextProperty(<span class="string">&quot;gameController&quot;</span><span class="operator">,</span> <span class="operator">&amp;</span>controller);</pre>
+<p>This makes <code translate="no">gameController</code> available as a global identifier in every QML file loaded by this engine &mdash; <code translate="no">GameScene.qml</code> and all entity files reference it directly, without an <code translate="no">import</code> statement and without declaring a <code translate="no">GameController {}</code> element anywhere in QML.</p>
+<h2 id="updating-gamescene-qml">Updating GameScene.qml</h2>
+<h3 id="scene-setup">Scene setup</h3>
+<p><code translate="no">GameScene.qml</code> no longer declares <code translate="no">gameRunning</code>, <code translate="no">score</code>, and the various interval properties itself &mdash; these now live in the <code translate="no">gameController</code> context property set up in <code translate="no">main.cpp</code>. On startup, the scene dimensions are passed to <code translate="no">GameController</code> once via <code translate="no">Component.onCompleted</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Scene</span> {
+    <span class="name">id</span>: <span class="name">gameScene</span>
+
+    <span class="comment">// init, set scene dimension for spawn calculation</span>
+    <span class="name">Component</span>.onCompleted: {
+        <span class="name">gameController</span>.<span class="name">setSceneDimensions</span>(
+            <span class="name">gameWindowAnchorItem</span>.<span class="name">width</span>,
+            <span class="name">gameWindowAnchorItem</span>.<span class="name">height</span>)
+    }
+
+    <span class="type">PhysicsWorld</span> { } <span class="comment">// no need to set gravity, the collider is not physics-based</span>
+
+    <span class="comment">// background image</span>
+    <span class="type">Image</span> {
+        <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+        <span class="name">fillMode</span>: <span class="name">Image</span>.<span class="name">PreserveAspectCrop</span>
+        <span class="name">source</span>: <span class="string">&quot;../assets/img/background.png&quot;</span>
+    }
+    <span class="comment">// ...</span>
+}</pre>
+<h3 id="score-and-overlay-bindings">Score and overlay bindings</h3>
+<p>The score display and pause/game-over overlay now bind directly to <code translate="no">GameController</code>'s <code translate="no">NOTIFY</code>-enabled properties:</p>
+<pre class="cpp" translate="no">OverlayText {
+    id: scoreText
+    anchors<span class="operator">.</span>horizontalCenter: gameWindowAnchorItem<span class="operator">.</span>horizontalCenter
+    y: <span class="number">10</span>
+    secondaryText: <span class="string">&quot;score: &quot;</span> <span class="operator">+</span> gameController<span class="operator">.</span>score
+}
+
+OverlayText {
+    id: overlayText
+    anchors<span class="operator">.</span>centerIn: gameWindowAnchorItem
+    visible: <span class="operator">!</span>gameController<span class="operator">.</span>gameRunning
+
+    primaryText: <span class="string">&quot;pause&quot;</span>
+    secondaryText: <span class="string">&quot;click to start&quot;</span>
+}</pre>
+<p>Because <code translate="no">gameRunningChanged()</code> and <code translate="no">scoreChanged()</code> are emitted from C++, these bindings re-evaluate automatically &mdash; no manual property assignment needed.</p>
+<h3 id="reacting-to-game-over-renaming-the-overlay-text">Reacting to game-over: renaming the overlay text</h3>
+<p>In the original tutorial, <code translate="no">resetGame()</code> directly assigned the &quot;GAME OVER&quot; text. Now that <code translate="no">gameOver()</code> is triggered from C++, QML reacts to the resulting <code translate="no">gameRunningChanged()</code> signal via <code translate="no">Connections</code>:</p>
+<pre class="cpp" translate="no"><span class="type">Connections</span> {
+    <span class="name">target</span>: <span class="name">gameController</span>
+
+    <span class="comment">// reaction to gameOver() to change overlay-text for next restart.</span>
+    <span class="keyword">function</span> <span class="name">onGameRunningChanged</span>() {
+        <span class="keyword">if</span> (!<span class="name">gameController</span>.<span class="name">gameRunning</span>) {
+            <span class="comment">// rename overlay text for next game over</span>
+            <span class="name">overlayText</span>.<span class="name">primaryText</span>   <span class="operator">=</span> <span class="string">&quot;GAME OVER&quot;</span>
+            <span class="name">overlayText</span>.<span class="name">secondaryText</span> <span class="operator">=</span> <span class="string">&quot;click to restart&quot;</span>
+        }
+    }
+
+    <span class="comment">// create enemies</span>
+    <span class="keyword">function</span> <span class="name">onSpawnEnemyRequested</span>(properties) {
+        var enemyID = <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(
+            <span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Enemy.qml&quot;</span>), <span class="name">properties</span>)
+        var entity = <span class="name">entityManager</span>.<span class="name">getEntityById</span>(<span class="name">enemyID</span>)
+        <span class="name">entity</span>.<span class="name">active</span> <span class="operator">=</span> <span class="name">Qt</span>.<span class="name">binding</span>(<span class="keyword">function</span>() { <span class="keyword">return</span> <span class="name">gameController</span>.<span class="name">gameRunning</span> })
+    }
+}</pre>
+<h3 id="spawning-enemies-from-qml-timer-to-c-signal">Spawning enemies: from QML Timer to C++ signal</h3>
+<p>The original QML <code translate="no">Timer.onTriggered</code> block &mdash; which calculated the spawn position and called <code translate="no">entityManager.createEntityFromUrlWithProperties()</code> directly &mdash; is replaced by the <code translate="no">onSpawnEnemyRequested</code> handler shown above. <code translate="no">GameController</code> performs the calculation and emits <code translate="no">spawnEnemyRequested(properties)</code>; QML's only remaining job is the actual Felgo entity instantiation.</p>
+<p>The <code translate="no">Qt.binding()</code> call deserves explanation: <code translate="no">createEntityFromUrlWithProperties()</code> only sets properties <i>once</i>, at creation time &mdash; it cannot establish a live binding. <code translate="no">Qt.binding(function() {...})</code> creates that binding retroactively on the newly created entity, so its <code translate="no">active</code> property continues to track <code translate="no">gameController.gameRunning</code> for its entire lifetime. The same pattern is applied to bullets, see below.</p>
+<h3 id="shooting-delegating-the-vector-math">Shooting: delegating the vector math</h3>
+<p>The <code translate="no">onPressed</code> handler now delegates the direction calculation to <code translate="no">gameController.calculateMovementParameters()</code> instead of a local JavaScript function. The same <code translate="no">Qt.binding()</code> pattern used for enemies is applied to bullets:</p>
+<pre class="cpp" translate="no"><span class="type">MouseArea</span> {
+    <span class="name">anchors</span>.fill: <span class="name">gameWindowAnchorItem</span>
+    <span class="name">onPressed</span>: (<span class="keyword"></span>mouse)=&gt; {
+        <span class="keyword">if</span>(<span class="name">gameController</span>.<span class="name">gameRunning</span>){
+            var movementProperties = <span class="name">gameController</span>.<span class="name">calculateMovementParameters</span>(
+                <span class="name">player</span>.<span class="name">x</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">width</span><span class="operator">/</span><span class="number">2</span>,
+                <span class="name">player</span>.<span class="name">y</span> <span class="operator">+</span> <span class="name">player</span>.<span class="name">height</span><span class="operator">/</span><span class="number">2</span>,
+                <span class="name">mouse</span>.<span class="name">x</span>,
+                <span class="name">mouse</span>.<span class="name">y</span>)
+
+            <span class="name">movementProperties</span>.<span class="name">x</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityX</span> <span class="operator">-</span> <span class="number">5</span>
+            <span class="name">movementProperties</span>.<span class="name">y</span> <span class="operator">+=</span> <span class="number">22</span><span class="operator">*</span><span class="name">movementProperties</span>.<span class="name">velocityY</span> <span class="operator">-</span> <span class="number">5</span>
+
+            var bulletID = <span class="name">entityManager</span>.<span class="name">createEntityFromUrlWithProperties</span>(
+                <span class="name">Qt</span>.<span class="name">resolvedUrl</span>(<span class="string">&quot;entities/Bullet.qml&quot;</span>), <span class="name">movementProperties</span>)
+            var entity = <span class="name">entityManager</span>.<span class="name">getEntityById</span>(<span class="name">bulletID</span>)
+            <span class="name">entity</span>.<span class="name">enemyHit</span>.<span class="name">connect</span>(<span class="keyword">function</span>() { <span class="name">gameController</span>.<span class="name">incrementScore</span>() })
+            <span class="name">entity</span>.<span class="name">active</span> <span class="operator">=</span> <span class="name">Qt</span>.<span class="name">binding</span>(<span class="keyword">function</span>() { <span class="keyword">return</span> <span class="name">gameController</span>.<span class="name">gameRunning</span> })
+        }
+        <span class="keyword">else</span> <span class="keyword">if</span>(!<span class="name">gameController</span>.<span class="name">isDelayActive</span>()) {
+            <span class="name">resetGame</span>()
+        }
+    }
+}</pre>
+<p>Two things changed compared to the original <code translate="no">score++</code>: incrementing the score now goes through <code translate="no">gameController.incrementScore()</code>, which also triggers the difficulty recalculation in C++. And <code translate="no">entity.active</code> is bound the same way as for enemies.</p>
+<h3 id="resetting-the-game">Resetting the game</h3>
+<p><code translate="no">resetGame()</code> is now minimal &mdash; entity cleanup stays in QML (Felgo API), while score reset and restarting the spawn timer move to <code translate="no">gameController.startGame()</code>:</p>
+<pre class="cpp" translate="no">function resetGame() {
+    <span class="comment">// delete all enemies and bullets</span>
+    entityManager<span class="operator">.</span>removeEntitiesByFilter(<span class="operator">[</span><span class="string">&quot;enemy&quot;</span><span class="operator">,</span><span class="string">&quot;bullet&quot;</span><span class="operator">]</span>)
+
+    <span class="comment">// (re)start game</span>
+    gameController<span class="operator">.</span>startGame()
+}</pre>
+<h2 id="updating-the-entity-files">Updating the entity files</h2>
+<h3 id="the-active-property-pattern">The active property pattern</h3>
+<p><code translate="no">Player</code>, <code translate="no">Enemy</code>, and <code translate="no">Bullet</code> no longer reference <code translate="no">gameScene.gameRunning</code> directly. Each entity instead declares its own <code translate="no">active</code> property, defaulting to <code translate="no">false</code>:</p>
+<pre class="cpp" translate="no">property <span class="type">bool</span> active: <span class="keyword">false</span></pre>
+<p>All <code translate="no">running:</code> bindings inside the entity (on <code translate="no">GameSpriteSequence</code> and <code translate="no">MovementAnimation</code>) reference this local property instead of the scene:</p>
+<pre class="cpp" translate="no"><span class="type">GameSpriteSequence</span> {
+    <span class="name">id</span>: <span class="name">spriteSequence</span>
+    <span class="name">running</span>: <span class="name">active</span>
+    <span class="comment">// ...</span>
+}</pre>
+<p>This decouples each entity file from the scene's internal structure: an entity file makes no assumptions about what its parent is called or how it tracks game state. <code translate="no">Player</code> is instantiated directly in <code translate="no">GameScene.qml</code> with a normal property binding:</p>
+<pre class="cpp" translate="no"><span class="type">Player</span> {
+    <span class="name">id</span>: <span class="name">player</span>
+    <span class="name">active</span>: <span class="name">gameController</span>.<span class="name">gameRunning</span>
+    <span class="comment">// ...</span>
+}</pre>
+<p><code translate="no">Enemy</code> and <code translate="no">Bullet</code>, being created dynamically via <code translate="no">EntityManager</code>, receive their <code translate="no">active</code> binding retroactively via <code translate="no">Qt.binding()</code> as shown in the previous section.</p>
+<h3 id="player-position-reporting">Player: position reporting</h3>
+<p><code translate="no">Player.qml</code> additionally reports its initial position to <code translate="no">GameController</code> on creation, so the spawn calculation has a valid target from the start:</p>
+<pre class="cpp" translate="no"><span class="type">Player</span> {
+    <span class="name">id</span>: <span class="name">player</span>
+    <span class="name">active</span>: <span class="name">gameController</span>.<span class="name">gameRunning</span>
+    <span class="name">anchors</span>.horizontalCenter: <span class="name">gameWindowAnchorItem</span>.<span class="name">horizontalCenter</span>
+    <span class="name">y</span>: <span class="name">gameWindowAnchorItem</span>.<span class="name">height</span> <span class="operator">-</span> <span class="name">height</span> <span class="operator">-</span> <span class="number">10</span>
+
+    <span class="name">onHitByEnemy</span>: {
+        <span class="name">gameController</span>.<span class="name">gameOver</span>()
+    }
+
+    <span class="name">Component</span>.onCompleted: <span class="name">gameController</span>.<span class="name">updatePlayerPosition</span>(
+                               <span class="name">player</span>.<span class="name">x</span>, <span class="name">player</span>.<span class="name">y</span>, <span class="name">player</span>.<span class="name">width</span>, <span class="name">player</span>.<span class="name">height</span>)
+}</pre>
+<div class="admonition note">
+<p><b>Note: </b>The original tutorial's delay timer is now backed entirely by <code translate="no">GameController::m_delayTimer</code>, exposed via <code translate="no">isDelayActive()</code>. There is no separate QML <code translate="no">delayTimer</code> &mdash; <code translate="no">gameController.gameOver()</code> starts the C++ delay timer internally, and the <code translate="no">MouseArea</code>'s <code translate="no">else if(!gameController.isDelayActive())</code> branch (see <a href="refactoring-cpp-model-view.html#shooting-delegating-the-vector-math">Shooting: delegating the vector math</a>) consults it directly.</p>
+</div>
+<h3 id="enemy-and-bullet-no-further-changes">Enemy and Bullet: no further changes</h3>
+<p><code translate="no">Enemy.qml</code> and <code translate="no">Bullet.qml</code> otherwise remain structurally identical to the original tutorial &mdash; <code translate="no">velocityX</code>/<code translate="no">velocityY</code>/<code translate="no">speed</code> properties, <code translate="no">MovementAnimation</code>, and <code translate="no">CircleCollider</code> setup are unchanged, aside from <code translate="no">running: active</code> replacing <code translate="no">running: gameScene.gameRunning</code>.</p>
+<h2 id="what-stays-in-qml-and-why">What stays in QML, and why</h2>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Element</th><th >Reason it cannot move to C++</th></tr></thead>
+<tr valign="top" class="odd"><td ><code translate="no">EntityManager</code></td><td >Felgo-internal entity lifecycle management; no public C++ API for entity creation/removal</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">CircleCollider</code> / <code translate="no">fixture.onBeginContact</code></td><td >Felgo's physics-collision callbacks are QML-only</td></tr>
+<tr valign="top" class="odd"><td ><code translate="no">MovementAnimation</code></td><td >Felgo QML animation type; playback is driven by the QML scene graph</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">Qt.binding()</code> calls</td><td >Required because <code translate="no">createEntityFromUrlWithProperties()</code> only assigns properties once; live bindings must be established after creation</td></tr>
+</table></div>
+<h2 id="result">Result</h2>
+<p><code translate="no">GameController</code> now owns all game state, the difficulty curve, spawn timing, and movement math &mdash; all of it unit-testable with QTest, independent of any running QML engine. QML retains only Felgo-specific entity management, rendering, and the thin <code translate="no">active</code>-property glue connecting the two.</p>
+<p>Compare the two versions directly on GitHub:</p>
+<ul>
+<li><a href="https://github.com/lasser-j/game-example-with-felgo/tree/v1.0-qml-only">v1.0-qml-only</a> &ndash; pure QML/JS implementation</li>
+<li><a href="https://github.com/lasser-j/game-example-with-felgo/tree/v2.0-cpp-refactor">v2.0-cpp-refactor</a> &ndash; game logic extracted to <code translate="no">GameController</code></li>
+</ul>
+</div>
+<!-- @@@refactoring-cpp-model-view -->
+<p class="naviNextPrevious footerNavi">
+<a class="prevPage" href="how-to-create-a-simple-game-with-felgo.html">How to build a simple game with Felgo</a>
+</p>
+</body>
+</html>

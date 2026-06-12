@@ -30,3 +30,39 @@ img {
     margin: 0 auto;    /* centers images */
     max-height: 400px;
 }
+
+.naviNextPrevious .prevPage::before {
+    content: "← Previous: ";
+}
+
+.naviNextPrevious .nextPage::before {
+    content: "Next: → ";
+}
+
+table.generic {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.5em 0;
+}
+ 
+table.generic th,
+table.generic td {
+    border: 1px solid #ccc;
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+}
+ 
+table.generic thead tr.qt-style th {
+    background-color: #e8e8e8;
+    font-weight: bold;
+}
+ 
+table.generic tr.odd {
+    background-color: #ffffff;
+}
+ 
+table.generic tr.even {
+    background-color: #f9f9f9;
+}
+ 
