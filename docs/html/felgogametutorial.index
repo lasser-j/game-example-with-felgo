@@ -35,5 +35,19 @@
             <contents name="what-stays-in-qml-and-why" title="What stays in QML, and why" level="1"/>
             <contents name="result" title="Result" level="1"/>
         </page>
+        <page name="testing-gamecontroller" href="testing-gamecontroller.html" status="active" location="testing.qdoc" filepath="D:/Github/invasion/docs/testing.qdoc" lineno="1" documented="true" subtype="page" title="Unit Testing GameController with QTest" fulltitle="Unit Testing GameController with QTest" subtitle="">
+            <contents name="why-test-gamecontroller-and-nothing-else" title="Why test GameController and nothing else" level="1"/>
+            <contents name="what-is-tested-and-what-isn-t" title="What is tested, and what isn't" level="1"/>
+            <contents name="test-file" title="Test file" level="1"/>
+            <contents name="movement-calculation" title="Movement calculation" level="2"/>
+            <contents name="game-state-transitions" title="Game state transitions" level="2"/>
+            <contents name="signal-emission-and-the-early-return-guard" title="Signal emission and the early-return guard" level="2"/>
+            <contents name="score-increments" title="Score increments" level="2"/>
+            <contents name="delay-timer-state" title="Delay timer state" level="2"/>
+            <contents name="spawn-signal-wiring-and-payload-in-one-test" title="Spawn signal: wiring and payload in one test" level="2"/>
+            <contents name="difficulty-interval-an-indirect-black-box-test" title="Difficulty interval: an indirect black-box test" level="2"/>
+            <contents name="cmake-integration" title="CMake integration" level="1"/>
+            <contents name="result" title="Result" level="1"/>
+        </page>
     </namespace>
 </INDEX>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+<!-- testing.qdoc -->
+  <title>Unit Testing GameController with QTest | FelgoGameTutorial</title>
+<link rel="stylesheet" type="text/css" href="style/style.css" /></head>
+<body>
+  <link rel="prev" href="refactoring-cpp-model-view.html" />
+<p class="naviNextPrevious headerNavi">
+<a class="prevPage" href="refactoring-cpp-model-view.html">Refactoring to C++: A Model/View Architecture with GameController</a>
+</p>
+<div class="sidebar">
+<div class="toc">
+<h3 id="toc">Contents</h3>
+<ul>
+<li class="level1"><a href="#why-test-gamecontroller-and-nothing-else">Why test GameController and nothing else</a></li>
+<li class="level1"><a href="#what-is-tested-and-what-isn-t">What is tested, and what isn't</a></li>
+<li class="level1"><a href="#test-file">Test file</a></li>
+<li class="level2"><a href="#movement-calculation">Movement calculation</a></li>
+<li class="level2"><a href="#game-state-transitions">Game state transitions</a></li>
+<li class="level2"><a href="#signal-emission-and-the-early-return-guard">Signal emission and the early-return guard</a></li>
+<li class="level2"><a href="#score-increments">Score increments</a></li>
+<li class="level2"><a href="#delay-timer-state">Delay timer state</a></li>
+<li class="level2"><a href="#spawn-signal-wiring-and-payload-in-one-test">Spawn signal: wiring and payload in one test</a></li>
+<li class="level2"><a href="#difficulty-interval-an-indirect-black-box-test">Difficulty interval: an indirect black-box test</a></li>
+<li class="level1"><a href="#cmake-integration">CMake integration</a></li>
+<li class="level1"><a href="#result">Result</a></li>
+</ul>
+</div>
+<div class="sidebar-content" id="sidebar-content"></div></div>
+<h1 class="title">Unit Testing GameController with QTest</h1>
+<!-- $$$testing-gamecontroller-description -->
+<div class="descr" id="details">
+<p>This tutorial builds on <a href="refactoring-cpp-model-view.html">Refactoring to C++: A Model/View Architecture with GameController</a>. The complete source code, including the test added here, is available at <a href="https://github.com/lasser-j/game-example-with-felgo/tree/v2.1-unit-tests">GitHub (tag v2.1-unit-tests)</a>.</p>
+<h2 id="why-test-gamecontroller-and-nothing-else">Why test GameController and nothing else</h2>
+<p>The previous tutorial separated game logic (<code translate="no">GameController</code>, C++) from rendering and Felgo-specific entity management (QML). The practical payoff of that separation is testability: <code translate="no">GameController</code> has no dependency on a running QML engine, the <code translate="no">EntityManager</code>, or any Felgo type, so it can be instantiated and exercised directly in a plain Qt unit test.</p>
+<p>The QML side &mdash; <code translate="no">EntityManager</code>, <code translate="no">CircleCollider</code>, <code translate="no">MovementAnimation</code> &mdash; is deliberately <i>not</i> covered here. As discussed in the previous tutorial, these are Felgo-internal types with no public C++ API; testing them would require a running QML engine and scene graph, which is a fundamentally different (and much heavier) kind of test.</p>
+<h2 id="what-is-tested-and-what-isn-t">What is tested, and what isn't</h2>
+<div class="table"><table class="generic">
+ <thead><tr class="qt-style"><th >Behaviour</th><th >Tested?</th><th >Reason</th></tr></thead>
+<tr valign="top" class="odd"><td ><code translate="no">calculateMovementParameters()</code></td><td >Yes</td><td >Pure function, deterministic input/output</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">startGame()</code> / <code translate="no">gameOver()</code> state transitions</td><td >Yes</td><td >Pure state changes, no timing involved</td></tr>
+<tr valign="top" class="odd"><td ><code translate="no">incrementScore()</code></td><td >Yes</td><td >Pure state change</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">gameRunningChanged()</code> / <code translate="no">scoreChanged()</code> emission</td><td >Yes</td><td ><code translate="no">QSignalSpy</code> observes emissions directly, no QML binding needed</td></tr>
+<tr valign="top" class="odd"><td ><code translate="no">isDelayActive()</code></td><td >Yes</td><td >Timer state immediately after <code translate="no">start()</code>/<code translate="no">singleShot</code>, no waiting required</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">spawnEnemyRequested()</code> emission and payload</td><td >Yes</td><td ><code translate="no">QSignalSpy::wait()</code> on the real spawn timer, verifying both that <code translate="no">startGame()</code> actually starts the timer and that the emitted properties are valid</td></tr>
+<tr valign="top" class="odd"><td >Exact spawn position / side selection</td><td >No</td><td >Depends on <code translate="no">QRandomGenerator</code>; only the normalization of the resulting direction vector is checked, not the concrete <code translate="no">x</code>/<code translate="no">y</code>/side values</td></tr>
+<tr valign="top" class="even"><td ><code translate="no">recalculateDifficulty()</code> interval changes</td><td >Yes (indirect)</td><td ><code translate="no">m_spawnTimer.interval()</code> is private and has no getter. The effect of <code translate="no">recalculateDifficulty()</code> is instead observed indirectly: after enough <code translate="no">incrementScore()</code> calls, the time until the next <code translate="no">spawnEnemyRequested()</code> must drop below a threshold that is only reachable if the interval actually decreased</td></tr>
+</table></div>
+<p>The remaining gap is a deliberate scope decision: testing exact spawn coordinates would require seeding <code translate="no">QRandomGenerator</code> deterministically, which is not worth the added complexity for this project.</p>
+<h2 id="test-file">Test file</h2>
+<p>The test lives in <code translate="no">tests/test_gamecontroller.cpp</code> and uses <code translate="no">QTEST_MAIN</code>, which generates a <code translate="no">main()</code> function that runs every slot in <code translate="no">TestGameController</code> as a separate test case.</p>
+<h3 id="movement-calculation">Movement calculation</h3>
+<p><code translate="no">calculateMovementParameters()</code> is tested with a 3-4-5 right triangle, a classic case where the normalized direction vector has a simple, exact expected result:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>calculateMovementParameters_normalizesDirection()
+{
+    GameController controller;
+
+    <span class="comment">// 3-4-5 triangle: direction from (0,0) to (3,4) has length 5</span>
+    <span class="keyword">const</span> <span class="keyword">auto</span> result <span class="operator">=</span> controller<span class="operator">.</span>calculateMovementParameters(<span class="number">0</span><span class="operator">,</span> <span class="number">0</span><span class="operator">,</span> <span class="number">3</span><span class="operator">,</span> <span class="number">4</span>);
+
+    QCOMPARE(result<span class="operator">[</span><span class="string">&quot;velocityX&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal()<span class="operator">,</span> <span class="number">0.6</span>); <span class="comment">// 3/5</span>
+    QCOMPARE(result<span class="operator">[</span><span class="string">&quot;velocityY&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal()<span class="operator">,</span> <span class="number">0.8</span>); <span class="comment">// 4/5</span>
+}</pre>
+<p>A second test verifies that the origin coordinates pass through unchanged &mdash; only the direction is normalized, the starting position itself is not:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>calculateMovementParameters_preservesOrigin()
+{
+    GameController controller;
+
+    <span class="comment">// x/y in the result must be the *origin*, unchanged, regardless of direction</span>
+    <span class="keyword">const</span> <span class="keyword">auto</span> result <span class="operator">=</span> controller<span class="operator">.</span>calculateMovementParameters(<span class="number">10</span><span class="operator">,</span> <span class="number">20</span><span class="operator">,</span> <span class="number">100</span><span class="operator">,</span> <span class="number">200</span>);
+
+    QCOMPARE(result<span class="operator">[</span><span class="string">&quot;x&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal()<span class="operator">,</span> <span class="number">10.0</span>);
+    QCOMPARE(result<span class="operator">[</span><span class="string">&quot;y&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal()<span class="operator">,</span> <span class="number">20.0</span>);
+}</pre>
+<h3 id="game-state-transitions">Game state transitions</h3>
+<p><code translate="no">startGame()</code> must reset the score to zero and set <code translate="no">gameRunning</code> to <code translate="no">true</code>, regardless of the previous state:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>startGame_resetsScoreAndSetsGameRunning()
+{
+    GameController controller;
+
+    controller<span class="operator">.</span>incrementScore();
+    controller<span class="operator">.</span>incrementScore();
+    QCOMPARE(controller<span class="operator">.</span>score()<span class="operator">,</span> <span class="number">2U</span>);
+
+    controller<span class="operator">.</span>startGame();
+
+    QCOMPARE(controller<span class="operator">.</span>score()<span class="operator">,</span> <span class="number">0U</span>);
+    QCOMPARE(controller<span class="operator">.</span>isGameRunning()<span class="operator">,</span> <span class="keyword">true</span>);
+}</pre>
+<h3 id="signal-emission-and-the-early-return-guard">Signal emission and the early-return guard</h3>
+<p>The previous tutorial explained that <code translate="no">setGameRunning()</code> and <code translate="no">setScore()</code> only <code translate="no">emit</code> their <code translate="no">NOTIFY</code> signal if the value actually changed. This test verifies that guard directly using <code translate="no">QSignalSpy</code>: calling <code translate="no">startGame()</code> a second time, without the score having changed in between, must not produce a redundant <code translate="no">scoreChanged()</code> or <code translate="no">gameRunningChanged()</code> emission.</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>startGame_emitsSignalsOnlyOnChange()
+{
+    GameController controller;
+
+    <span class="type">QSignalSpy</span> runningSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>gameRunningChanged);
+    <span class="type">QSignalSpy</span> scoreSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>scoreChanged);
+
+    <span class="comment">// first call: gameRunning false -&gt; true, score already 0 -&gt; 0</span>
+    controller<span class="operator">.</span>startGame();
+
+    QCOMPARE(runningSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">1</span>);
+    QCOMPARE(scoreSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">0</span>); <span class="comment">// score was already 0, setScore() must not emit</span>
+
+    <span class="comment">// second call without score change in between: gameRunning true -&gt; true</span>
+    controller<span class="operator">.</span>startGame();
+
+    QCOMPARE(runningSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">1</span>); <span class="comment">// still 1 - no redundant emit</span>
+    QCOMPARE(scoreSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">0</span>);
+}</pre>
+<p><code translate="no">gameOver()</code> is tested similarly, additionally checking that the delay timer is started:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>gameOver_setsGameRunningFalseAndStartsDelay()
+{
+    GameController controller;
+    controller<span class="operator">.</span>startGame();
+
+    <span class="type">QSignalSpy</span> runningSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>gameRunningChanged);
+
+    controller<span class="operator">.</span>gameOver();
+
+    QCOMPARE(controller<span class="operator">.</span>isGameRunning()<span class="operator">,</span> <span class="keyword">false</span>);
+    QCOMPARE(runningSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">1</span>);
+    QCOMPARE(controller<span class="operator">.</span>isDelayActive()<span class="operator">,</span> <span class="keyword">true</span>);
+}</pre>
+<h3 id="score-increments">Score increments</h3>
+<p>Two tests cover <code translate="no">incrementScore()</code>: one checks the resulting value, the other checks that <code translate="no">scoreChanged()</code> fires once per call:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>incrementScore_increasesScoreByOne()
+{
+    GameController controller;
+    controller<span class="operator">.</span>startGame(); <span class="comment">// score = 0</span>
+
+    controller<span class="operator">.</span>incrementScore();
+    QCOMPARE(controller<span class="operator">.</span>score()<span class="operator">,</span> <span class="number">1U</span>);
+
+    controller<span class="operator">.</span>incrementScore();
+    QCOMPARE(controller<span class="operator">.</span>score()<span class="operator">,</span> <span class="number">2U</span>);
+}
+
+<span class="type">void</span> TestGameController<span class="operator">::</span>incrementScore_emitsScoreChanged()
+{
+    GameController controller;
+
+    <span class="type">QSignalSpy</span> scoreSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>scoreChanged);
+
+    controller<span class="operator">.</span>incrementScore();
+    controller<span class="operator">.</span>incrementScore();
+
+    QCOMPARE(scoreSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">2</span>);
+    QCOMPARE(controller<span class="operator">.</span>score()<span class="operator">,</span> <span class="number">2U</span>);
+}</pre>
+<h3 id="delay-timer-state">Delay timer state</h3>
+<p><code translate="no">isDelayActive()</code> is checked both before and immediately after <code translate="no">gameOver()</code>. Because <code translate="no">m_delayTimer</code> is single-shot and <code translate="no">QTimer::isActive()</code> returns <code translate="no">true</code> immediately after <code translate="no">start()</code> (no waiting required), this test is fast and deterministic:</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>isDelayActive_falseBeforeGameOver()
+{
+    GameController controller;
+    controller<span class="operator">.</span>startGame();
+
+    QCOMPARE(controller<span class="operator">.</span>isDelayActive()<span class="operator">,</span> <span class="keyword">false</span>);
+}
+
+<span class="type">void</span> TestGameController<span class="operator">::</span>isDelayActive_trueImmediatelyAfterGameOver()
+{
+    GameController controller;
+    controller<span class="operator">.</span>startGame();
+    controller<span class="operator">.</span>gameOver();
+
+    <span class="comment">// delay timer is single-shot and was just started - must be active immediately</span>
+    QCOMPARE(controller<span class="operator">.</span>isDelayActive()<span class="operator">,</span> <span class="keyword">true</span>);
+}</pre>
+<h3 id="spawn-signal-wiring-and-payload-in-one-test">Spawn signal: wiring and payload in one test</h3>
+<p>Unlike the other tests, this one deliberately uses a real <code translate="no">QTimer</code> via <code translate="no">QSignalSpy::wait()</code>. After <code translate="no">startGame()</code>, the spawn timer (initial interval <code translate="no">k_initEnemySpawnInterval</code> = 500ms) fires <code translate="no">onSpawnTimerTriggered()</code>, which emits <code translate="no">spawnEnemyRequested()</code>. Waiting for this signal verifies two things at once: that <code translate="no">startGame()</code> actually starts <code translate="no">m_spawnTimer</code> (i.e. the <code translate="no">connect()</code> in the constructor is correctly wired up), and that the emitted properties are well-formed.</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>spawnEnemyRequested_firesAfterStartGameWithValidProperties()
+{
+    GameController controller;
+    controller<span class="operator">.</span>setSceneDimensions(<span class="number">960</span><span class="operator">,</span> <span class="number">640</span>);
+    controller<span class="operator">.</span>updatePlayerPosition(<span class="number">480</span><span class="operator">,</span> <span class="number">600</span><span class="operator">,</span> <span class="number">39</span><span class="operator">,</span> <span class="number">39</span>);
+
+    <span class="type">QSignalSpy</span> spawnSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>spawnEnemyRequested);
+
+    controller<span class="operator">.</span>startGame();
+
+    <span class="comment">// k_initEnemySpawnInterval = 500ms; generous timeout to avoid CI flakiness</span>
+    QVERIFY(spawnSpy<span class="operator">.</span>wait(<span class="number">1000</span>));
+    QCOMPARE(spawnSpy<span class="operator">.</span>count()<span class="operator">,</span> <span class="number">1</span>);
+
+    <span class="keyword">const</span> <span class="keyword">auto</span> properties <span class="operator">=</span> spawnSpy<span class="operator">.</span>at(<span class="number">0</span>)<span class="operator">.</span>at(<span class="number">0</span>)<span class="operator">.</span>toMap();
+    QVERIFY(properties<span class="operator">.</span>contains(<span class="string">&quot;x&quot;</span>));
+    QVERIFY(properties<span class="operator">.</span>contains(<span class="string">&quot;y&quot;</span>));
+    QVERIFY(properties<span class="operator">.</span>contains(<span class="string">&quot;velocityX&quot;</span>));
+    QVERIFY(properties<span class="operator">.</span>contains(<span class="string">&quot;velocityY&quot;</span>));
+
+    <span class="comment">// direction vector must be normalized</span>
+    <span class="keyword">const</span> <span class="type">qreal</span> vx <span class="operator">=</span> properties<span class="operator">[</span><span class="string">&quot;velocityX&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal();
+    <span class="keyword">const</span> <span class="type">qreal</span> vy <span class="operator">=</span> properties<span class="operator">[</span><span class="string">&quot;velocityY&quot;</span><span class="operator">]</span><span class="operator">.</span>toReal();
+    QVERIFY(qAbs(vx<span class="operator">*</span>vx <span class="operator">+</span> vy<span class="operator">*</span>vy <span class="operator">-</span> <span class="number">1.0</span>) <span class="operator">&lt;</span> <span class="number">1e</span><span class="operator">-</span><span class="number">9</span>);
+}</pre>
+<p>The 1000ms timeout is generous relative to the 500ms interval, which keeps this single timer-based test reliable on slower CI runners without meaningfully slowing down the suite.</p>
+<div class="admonition note">
+<p><b>Note: </b>For a larger test suite with many timer-dependent tests, accumulating multiple <code translate="no">wait()</code> calls of several hundred milliseconds each can add up to a noticeably slower test run and increase the chance of occasional CI flakiness. In that situation, it would be preferable to split this into two tests: one that calls <code translate="no">onSpawnTimerTriggered()</code> directly (verifying only the payload, requiring a <code translate="no">friend</code> declaration or making the method <code translate="no">protected</code>) and one minimal <code translate="no">wait()</code>-based test that only checks <i>that</i> the timer fires, without re-checking the payload. For the size of this project, the combined test above is the simpler and sufficiently fast choice.</p>
+</div>
+<h3 id="difficulty-interval-an-indirect-black-box-test">Difficulty interval: an indirect black-box test</h3>
+<p><code translate="no">recalculateDifficulty()</code> is <code translate="no">private</code>, and its effect &mdash; <code translate="no">m_spawnTimer.setInterval(...)</code> &mdash; is only observable through the private <code translate="no">m_spawnTimer</code> itself; <code translate="no">GameController</code> has no getter for the current interval. Rather than adding one purely for testing, this test observes the effect indirectly through the public interface: by timing how long it takes for <code translate="no">spawnEnemyRequested()</code> to fire again after the difficulty has increased.</p>
+<p>At <code translate="no">score = 120</code> (<code translate="no">= 6 * k_difficultyStep</code>, with <code translate="no">k_difficultyStep = 20</code>), the formula <code translate="no">max(k_minEnemySpawnInterval, k_initEnemySpawnInterval - difficulty * k_spawnAcceleration)</code> evaluates to <code translate="no">max(200, 500 - 6*50) = 200</code> &mdash; the spawn interval should have dropped from its initial 500ms all the way to the 200ms floor. A 350ms timeout sits squarely between these two values: it can only be met if the interval actually decreased.</p>
+<pre class="cpp" translate="no"><span class="type">void</span> TestGameController<span class="operator">::</span>incrementScore_reducesSpawnIntervalToMinimumAtHighDifficulty()
+{
+    GameController controller;
+    controller<span class="operator">.</span>setSceneDimensions(<span class="number">960</span><span class="operator">,</span> <span class="number">640</span>);
+    controller<span class="operator">.</span>updatePlayerPosition(<span class="number">480</span><span class="operator">,</span> <span class="number">600</span><span class="operator">,</span> <span class="number">39</span><span class="operator">,</span> <span class="number">39</span>);
+
+    <span class="type">QSignalSpy</span> spawnSpy(<span class="operator">&amp;</span>controller<span class="operator">,</span> <span class="operator">&amp;</span>GameController<span class="operator">::</span>spawnEnemyRequested);
+
+    controller<span class="operator">.</span>startGame(); <span class="comment">// spawn interval starts at 500ms</span>
+
+    <span class="comment">// consume the first spawn, fired at the initial 500ms interval</span>
+    QVERIFY(spawnSpy<span class="operator">.</span>wait(<span class="number">1000</span>));
+    spawnSpy<span class="operator">.</span>clear();
+
+    <span class="comment">// 120 increments = 6 * k_difficultyStep (20)</span>
+    <span class="comment">// -&gt; difficulty = 6, interval = max(k_minEnemySpawnInterval=200, 500 - 6*50) = 200ms</span>
+    <span class="keyword">for</span> (<span class="type">int</span> i <span class="operator">=</span> <span class="number">0</span>; i <span class="operator">&lt;</span> <span class="number">120</span>; <span class="operator">+</span><span class="operator">+</span>i)
+        controller<span class="operator">.</span>incrementScore();
+
+    <span class="comment">// 350ms is between the new (200ms) and old (500ms) interval:</span>
+    <span class="comment">// only passes if recalculateDifficulty() actually reduced the spawn interval</span>
+    QVERIFY(spawnSpy<span class="operator">.</span>wait(<span class="number">350</span>));
+}</pre>
+<div class="admonition note">
+<p><b>Note: </b>This test relies on the concrete values of <code translate="no">k_difficultyStep</code>, <code translate="no">k_initEnemySpawnInterval</code>, <code translate="no">k_minEnemySpawnInterval</code>, and <code translate="no">k_spawnAcceleration</code> from <code translate="no">GameController.hpp</code> (via the magic number <code translate="no">120</code> and the <code translate="no">350</code>ms threshold). If these constants change, the test's comments explain the expected calculation so it can be adjusted accordingly. This coupling to internal constants through their externally observable effect is the trade-off for testing private behaviour without changing the public interface.</p>
+</div>
+<h2 id="cmake-integration">CMake integration</h2>
+<p>The test is built as a separate executable target, linked against <code translate="no">Qt6::Test</code> and the <code translate="no">GameController</code> sources directly &mdash; no Felgo dependency is needed. To allow building and running the test suite without a Felgo SDK installation (e.g. in CI), the top-level <code translate="no">CMakeLists.txt</code> gains two options:</p>
+<pre class="cpp" translate="no">option(BUILD_GAME  <span class="string">&quot;Build the Felgo game application&quot;</span> ON)
+option(BUILD_TESTS <span class="string">&quot;Build GameController unit tests&quot;</span>   OFF)
+
+<span class="keyword">if</span>(BUILD_GAME)
+    find_package(Felgo REQUIRED)
+    <span class="preprocessor"># ... existing felgo_add_game() block, unchanged ...</span>
+endif()
+
+<span class="keyword">if</span>(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()</pre>
+<p><code translate="no">tests/CMakeLists.txt</code> is then a normal subdirectory file &mdash; no separate <code translate="no">project()</code> call, it inherits <code translate="no">CMAKE_CXX_STANDARD</code> etc. from the top-level file:</p>
+<pre class="cpp" translate="no">find_package(Qt6 REQUIRED COMPONENTS Core Test)
+
+add_executable(test_gamecontroller
+    test_gamecontroller<span class="operator">.</span>cpp
+    ${CMAKE_SOURCE_DIR}<span class="operator">/</span>src<span class="operator">/</span>GameController<span class="operator">.</span>cpp
+)
+
+target_include_directories(test_gamecontroller PRIVATE ${CMAKE_SOURCE_DIR}<span class="operator">/</span>src)
+target_link_libraries(test_gamecontroller PRIVATE Qt6<span class="operator">::</span>Core Qt6<span class="operator">::</span>Test)
+
+add_test(NAME GameControllerTests COMMAND test_gamecontroller)</pre>
+<p>With <code translate="no">-DBUILD_GAME=OFF</code>, <code translate="no">find_package(Felgo REQUIRED)</code> is never called, so configuring the project requires only Qt:</p>
+<pre class="cpp" translate="no">cmake <span class="operator">-</span>S <span class="operator">.</span> <span class="operator">-</span>B build <span class="operator">-</span>DBUILD_GAME<span class="operator">=</span>OFF <span class="operator">-</span>DBUILD_TESTS<span class="operator">=</span>ON
+cmake <span class="operator">-</span><span class="operator">-</span>build build <span class="operator">-</span><span class="operator">-</span>target test_gamecontroller
+ctest <span class="operator">-</span><span class="operator">-</span>test<span class="operator">-</span>dir build <span class="operator">-</span><span class="operator">-</span>output<span class="operator">-</span>on<span class="operator">-</span>failure</pre>
+<h2 id="result">Result</h2>
+<p>Eleven focused tests cover the entirety of <code translate="no">GameController</code>'s observable state machine: movement math, score and game-running transitions, signal emission (including the early-return guard), delay-timer state, the spawn-timer wiring with its emitted payload, and the difficulty-driven spawn interval reduction &mdash; all without a QML engine, a Felgo license, or any GUI. Combined with the architecture from the previous tutorial, this closes the loop: the C++/QML split isn't just cleaner on paper, it enables a fast, deterministic test suite that the original QML/JS implementation could not have had.</p>
+</div>
+<!-- @@@testing-gamecontroller -->
+<p class="naviNextPrevious footerNavi">
+<a class="prevPage" href="refactoring-cpp-model-view.html">Refactoring to C++: A Model/View Architecture with GameController</a>
+</p>
+</body>
+</html>

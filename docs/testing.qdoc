@@ -1,0 +1,395 @@
+/*!
+    \page testing-gamecontroller
+    \title Unit Testing GameController with QTest
+
+    \previouspage refactoring-cpp-model-view
+
+    This tutorial builds on \l{Refactoring to C++: A Model/View Architecture with GameController}.
+    The complete source code, including the test added here, is available at
+    \l{https://github.com/lasser-j/game-example-with-felgo/tree/v2.1-unit-tests}{GitHub (tag v2.1-unit-tests)}.
+
+    \section1 Why test GameController and nothing else
+
+    The previous tutorial separated game logic (\c{GameController}, C++) from rendering and
+    Felgo-specific entity management (QML). The practical payoff of that separation is testability:
+    \c{GameController} has no dependency on a running QML engine, the \c{EntityManager}, or any
+    Felgo type, so it can be instantiated and exercised directly in a plain Qt unit test.
+
+    The QML side \unicode{0x2014} \c{EntityManager}, \c{CircleCollider}, \c{MovementAnimation} \unicode{0x2014} is
+    deliberately \e{not} covered here. As discussed in the previous tutorial, these are
+    Felgo-internal types with no public C++ API; testing them would require a running QML
+    engine and scene graph, which is a fundamentally different (and much heavier) kind of test.
+
+    \section1 What is tested, and what isn't
+
+    \table
+        \header
+            \li Behaviour
+            \li Tested?
+            \li Reason
+        \row
+            \li \c{calculateMovementParameters()}
+            \li Yes
+            \li Pure function, deterministic input/output
+        \row
+            \li \c{startGame()} / \c{gameOver()} state transitions
+            \li Yes
+            \li Pure state changes, no timing involved
+        \row
+            \li \c{incrementScore()}
+            \li Yes
+            \li Pure state change
+        \row
+            \li \c{gameRunningChanged()} / \c{scoreChanged()} emission
+            \li Yes
+            \li \c{QSignalSpy} observes emissions directly, no QML binding needed
+        \row
+            \li \c{isDelayActive()}
+            \li Yes
+            \li Timer state immediately after \c{start()}/\c{singleShot}, no waiting required
+        \row
+            \li \c{spawnEnemyRequested()} emission and payload
+            \li Yes
+            \li \c{QSignalSpy::wait()} on the real spawn timer, verifying both that
+                \c{startGame()} actually starts the timer and that the emitted properties are
+                valid
+        \row
+            \li Exact spawn position / side selection
+            \li No
+            \li Depends on \c{QRandomGenerator}; only the normalization of the resulting
+                direction vector is checked, not the concrete \c{x}/\c{y}/side values
+        \row
+            \li \c{recalculateDifficulty()} interval changes
+            \li Yes (indirect)
+            \li \c{m_spawnTimer.interval()} is private and has no getter. The effect of
+                \c{recalculateDifficulty()} is instead observed indirectly: after enough
+                \c{incrementScore()} calls, the time until the next \c{spawnEnemyRequested()}
+                must drop below a threshold that is only reachable if the interval actually
+                decreased
+    \endtable
+
+    The remaining gap is a deliberate scope decision: testing exact spawn coordinates would
+    require seeding \c{QRandomGenerator} deterministically, which is not worth the added
+    complexity for this project.
+
+    \section1 Test file
+
+    The test lives in \c{tests/test_gamecontroller.cpp} and uses \c{QTEST_MAIN}, which generates
+    a \c{main()} function that runs every slot in \c{TestGameController} as a separate test case.
+
+    \section2 Movement calculation
+
+    \c{calculateMovementParameters()} is tested with a 3-4-5 right triangle, a classic case
+    where the normalized direction vector has a simple, exact expected result:
+
+    \code
+    void TestGameController::calculateMovementParameters_normalizesDirection()
+    {
+        GameController controller;
+
+        // 3-4-5 triangle: direction from (0,0) to (3,4) has length 5
+        const auto result = controller.calculateMovementParameters(0, 0, 3, 4);
+
+        QCOMPARE(result["velocityX"].toReal(), 0.6); // 3/5
+        QCOMPARE(result["velocityY"].toReal(), 0.8); // 4/5
+    }
+    \endcode
+
+    A second test verifies that the origin coordinates pass through unchanged \unicode{0x2014} only the
+    direction is normalized, the starting position itself is not:
+
+    \code
+    void TestGameController::calculateMovementParameters_preservesOrigin()
+    {
+        GameController controller;
+
+        // x/y in the result must be the *origin*, unchanged, regardless of direction
+        const auto result = controller.calculateMovementParameters(10, 20, 100, 200);
+
+        QCOMPARE(result["x"].toReal(), 10.0);
+        QCOMPARE(result["y"].toReal(), 20.0);
+    }
+    \endcode
+
+    \section2 Game state transitions
+
+    \c{startGame()} must reset the score to zero and set \c{gameRunning} to \c{true}, regardless
+    of the previous state:
+
+    \code
+    void TestGameController::startGame_resetsScoreAndSetsGameRunning()
+    {
+        GameController controller;
+
+        controller.incrementScore();
+        controller.incrementScore();
+        QCOMPARE(controller.score(), 2U);
+
+        controller.startGame();
+
+        QCOMPARE(controller.score(), 0U);
+        QCOMPARE(controller.isGameRunning(), true);
+    }
+    \endcode
+
+    \section2 Signal emission and the early-return guard
+
+    The previous tutorial explained that \c{setGameRunning()} and \c{setScore()} only \c{emit}
+    their \c{NOTIFY} signal if the value actually changed. This test verifies that guard
+    directly using \c{QSignalSpy}: calling \c{startGame()} a second time, without the score
+    having changed in between, must not produce a redundant \c{scoreChanged()} or
+    \c{gameRunningChanged()} emission.
+
+    \code
+    void TestGameController::startGame_emitsSignalsOnlyOnChange()
+    {
+        GameController controller;
+
+        QSignalSpy runningSpy(&controller, &GameController::gameRunningChanged);
+        QSignalSpy scoreSpy(&controller, &GameController::scoreChanged);
+
+        // first call: gameRunning false -> true, score already 0 -> 0
+        controller.startGame();
+
+        QCOMPARE(runningSpy.count(), 1);
+        QCOMPARE(scoreSpy.count(), 0); // score was already 0, setScore() must not emit
+
+        // second call without score change in between: gameRunning true -> true
+        controller.startGame();
+
+        QCOMPARE(runningSpy.count(), 1); // still 1 - no redundant emit
+        QCOMPARE(scoreSpy.count(), 0);
+    }
+    \endcode
+
+    \c{gameOver()} is tested similarly, additionally checking that the delay timer is started:
+
+    \code
+    void TestGameController::gameOver_setsGameRunningFalseAndStartsDelay()
+    {
+        GameController controller;
+        controller.startGame();
+
+        QSignalSpy runningSpy(&controller, &GameController::gameRunningChanged);
+
+        controller.gameOver();
+
+        QCOMPARE(controller.isGameRunning(), false);
+        QCOMPARE(runningSpy.count(), 1);
+        QCOMPARE(controller.isDelayActive(), true);
+    }
+    \endcode
+
+    \section2 Score increments
+
+    Two tests cover \c{incrementScore()}: one checks the resulting value, the other checks that
+    \c{scoreChanged()} fires once per call:
+
+    \code
+    void TestGameController::incrementScore_increasesScoreByOne()
+    {
+        GameController controller;
+        controller.startGame(); // score = 0
+
+        controller.incrementScore();
+        QCOMPARE(controller.score(), 1U);
+
+        controller.incrementScore();
+        QCOMPARE(controller.score(), 2U);
+    }
+
+    void TestGameController::incrementScore_emitsScoreChanged()
+    {
+        GameController controller;
+
+        QSignalSpy scoreSpy(&controller, &GameController::scoreChanged);
+
+        controller.incrementScore();
+        controller.incrementScore();
+
+        QCOMPARE(scoreSpy.count(), 2);
+        QCOMPARE(controller.score(), 2U);
+    }
+    \endcode
+
+    \section2 Delay timer state
+
+    \c{isDelayActive()} is checked both before and immediately after \c{gameOver()}. Because
+    \c{m_delayTimer} is single-shot and \c{QTimer::isActive()} returns \c{true} immediately
+    after \c{start()} (no waiting required), this test is fast and deterministic:
+
+    \code
+    void TestGameController::isDelayActive_falseBeforeGameOver()
+    {
+        GameController controller;
+        controller.startGame();
+
+        QCOMPARE(controller.isDelayActive(), false);
+    }
+
+    void TestGameController::isDelayActive_trueImmediatelyAfterGameOver()
+    {
+        GameController controller;
+        controller.startGame();
+        controller.gameOver();
+
+        // delay timer is single-shot and was just started - must be active immediately
+        QCOMPARE(controller.isDelayActive(), true);
+    }
+    \endcode
+
+    \section2 Spawn signal: wiring and payload in one test
+
+    Unlike the other tests, this one deliberately uses a real \c{QTimer} via
+    \c{QSignalSpy::wait()}. After \c{startGame()}, the spawn timer (initial interval
+    \c{k_initEnemySpawnInterval} = 500ms) fires \c{onSpawnTimerTriggered()}, which emits
+    \c{spawnEnemyRequested()}. Waiting for this signal verifies two things at once: that
+    \c{startGame()} actually starts \c{m_spawnTimer} (i.e. the \c{connect()} in the constructor
+    is correctly wired up), and that the emitted properties are well-formed.
+
+    \code
+    void TestGameController::spawnEnemyRequested_firesAfterStartGameWithValidProperties()
+    {
+        GameController controller;
+        controller.setSceneDimensions(960, 640);
+        controller.updatePlayerPosition(480, 600, 39, 39);
+
+        QSignalSpy spawnSpy(&controller, &GameController::spawnEnemyRequested);
+
+        controller.startGame();
+
+        // k_initEnemySpawnInterval = 500ms; generous timeout to avoid CI flakiness
+        QVERIFY(spawnSpy.wait(1000));
+        QCOMPARE(spawnSpy.count(), 1);
+
+        const auto properties = spawnSpy.at(0).at(0).toMap();
+        QVERIFY(properties.contains("x"));
+        QVERIFY(properties.contains("y"));
+        QVERIFY(properties.contains("velocityX"));
+        QVERIFY(properties.contains("velocityY"));
+
+        // direction vector must be normalized
+        const qreal vx = properties["velocityX"].toReal();
+        const qreal vy = properties["velocityY"].toReal();
+        QVERIFY(qAbs(vx*vx + vy*vy - 1.0) < 1e-9);
+    }
+    \endcode
+
+    The 1000ms timeout is generous relative to the 500ms interval, which keeps this single
+    timer-based test reliable on slower CI runners without meaningfully slowing down the suite.
+
+    \note For a larger test suite with many timer-dependent tests, accumulating multiple
+    \c{wait()} calls of several hundred milliseconds each can add up to a noticeably slower test
+    run and increase the chance of occasional CI flakiness. In that situation, it would be
+    preferable to split this into two tests: one that calls \c{onSpawnTimerTriggered()} directly
+    (verifying only the payload, requiring a \c{friend} declaration or making the method
+    \c{protected}) and one minimal \c{wait()}-based test that only checks \e{that} the timer
+    fires, without re-checking the payload. For the size of this project, the combined test
+    above is the simpler and sufficiently fast choice.
+
+    \section2 Difficulty interval: an indirect black-box test
+
+    \c{recalculateDifficulty()} is \c{private}, and its effect \unicode{0x2014}
+    \c{m_spawnTimer.setInterval(...)} \unicode{0x2014} is only observable through the private
+    \c{m_spawnTimer} itself; \c{GameController} has no getter for the current interval. Rather
+    than adding one purely for testing, this test observes the effect indirectly through the
+    public interface: by timing how long it takes for \c{spawnEnemyRequested()} to fire again
+    after the difficulty has increased.
+
+    At \c{score = 120} (\c{= 6 * k_difficultyStep}, with \c{k_difficultyStep = 20}), the formula
+    \c{max(k_minEnemySpawnInterval, k_initEnemySpawnInterval - difficulty * k_spawnAcceleration)}
+    evaluates to \c{max(200, 500 - 6*50) = 200} \unicode{0x2014} the spawn interval should have dropped
+    from its initial 500ms all the way to the 200ms floor. A 350ms timeout sits squarely between
+    these two values: it can only be met if the interval actually decreased.
+
+    \code
+    void TestGameController::incrementScore_reducesSpawnIntervalToMinimumAtHighDifficulty()
+    {
+        GameController controller;
+        controller.setSceneDimensions(960, 640);
+        controller.updatePlayerPosition(480, 600, 39, 39);
+
+        QSignalSpy spawnSpy(&controller, &GameController::spawnEnemyRequested);
+
+        controller.startGame(); // spawn interval starts at 500ms
+
+        // consume the first spawn, fired at the initial 500ms interval
+        QVERIFY(spawnSpy.wait(1000));
+        spawnSpy.clear();
+
+        // 120 increments = 6 * k_difficultyStep (20)
+        // -> difficulty = 6, interval = max(k_minEnemySpawnInterval=200, 500 - 6*50) = 200ms
+        for (int i = 0; i < 120; ++i)
+            controller.incrementScore();
+
+        // 350ms is between the new (200ms) and old (500ms) interval:
+        // only passes if recalculateDifficulty() actually reduced the spawn interval
+        QVERIFY(spawnSpy.wait(350));
+    }
+    \endcode
+
+    \note This test relies on the concrete values of \c{k_difficultyStep},
+    \c{k_initEnemySpawnInterval}, \c{k_minEnemySpawnInterval}, and \c{k_spawnAcceleration} from
+    \c{GameController.hpp} (via the magic number \c{120} and the \c{350}ms threshold). If these
+    constants change, the test's comments explain the expected calculation so it can be adjusted
+    accordingly. This coupling to internal constants through their externally observable effect
+    is the trade-off for testing private behaviour without changing the public interface.
+
+    \section1 CMake integration
+
+    The test is built as a separate executable target, linked against \c{Qt6::Test} and the
+    \c{GameController} sources directly \unicode{0x2014} no Felgo dependency is needed. To allow building
+    and running the test suite without a Felgo SDK installation (e.g. in CI), the top-level
+    \c{CMakeLists.txt} gains two options:
+
+    \code
+    option(BUILD_GAME  "Build the Felgo game application" ON)
+    option(BUILD_TESTS "Build GameController unit tests"   OFF)
+
+    if(BUILD_GAME)
+        find_package(Felgo REQUIRED)
+        # ... existing felgo_add_game() block, unchanged ...
+    endif()
+
+    if(BUILD_TESTS)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
+    \endcode
+
+    \c{tests/CMakeLists.txt} is then a normal subdirectory file \unicode{0x2014} no separate
+    \c{project()} call, it inherits \c{CMAKE_CXX_STANDARD} etc. from the top-level file:
+
+    \code
+    find_package(Qt6 REQUIRED COMPONENTS Core Test)
+
+    add_executable(test_gamecontroller
+        test_gamecontroller.cpp
+        ${CMAKE_SOURCE_DIR}/src/GameController.cpp
+    )
+
+    target_include_directories(test_gamecontroller PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_link_libraries(test_gamecontroller PRIVATE Qt6::Core Qt6::Test)
+
+    add_test(NAME GameControllerTests COMMAND test_gamecontroller)
+    \endcode
+
+    With \c{-DBUILD_GAME=OFF}, \c{find_package(Felgo REQUIRED)} is never called, so configuring
+    the project requires only Qt:
+
+    \code
+    cmake -S . -B build -DBUILD_GAME=OFF -DBUILD_TESTS=ON
+    cmake --build build --target test_gamecontroller
+    ctest --test-dir build --output-on-failure
+    \endcode
+
+    \section1 Result
+
+    Eleven focused tests cover the entirety of \c{GameController}'s observable state machine:
+    movement math, score and game-running transitions, signal emission (including the
+    early-return guard), delay-timer state, the spawn-timer wiring with its emitted payload, and
+    the difficulty-driven spawn interval reduction \unicode{0x2014} all without a QML engine, a Felgo
+    license, or any GUI. Combined with the architecture from the previous tutorial, this closes
+    the loop: the C++/QML split isn't just cleaner on paper, it enables a fast, deterministic
+    test suite that the original QML/JS implementation could not have had.
+*/

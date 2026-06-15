@@ -31,6 +31,12 @@ img {
     max-height: 400px;
 }
 
+.naviNextPrevious {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
 .naviNextPrevious .prevPage::before {
     content: "← Previous: ";
 }

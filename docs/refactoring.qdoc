@@ -3,6 +3,7 @@
     \title Refactoring to C++: A Model/View Architecture with GameController
 
     \previouspage How-to-create-a-simple-game-with-Felgo
+    \nextpage testing-gamecontroller
 
     This tutorial builds on \l{How-to-create-a-simple-game-with-Felgo}{the original Invasion tutorial}.
     If you haven't built the QML-only version yet, start there first. The complete source code

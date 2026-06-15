@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(invasion VERSION 0.1 LANGUAGES CXX)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Felgo REQUIRED)
+option(BUILD_GAME  "Build the Felgo game application" ON)
+option(BUILD_TESTS "Build GameController unit tests"   OFF)
 
+if(BUILD_GAME)
+find_package(Felgo REQUIRED)
 # Project identifier and version
 # More information: https://felgo.com/doc/felgo-publishing/#project-configuration
 set(PRODUCT_IDENTIFIER "com.ombalat.Invasion")
@@ -79,3 +80,9 @@ target_link_libraries(invasion PRIVATE Felgo)
 # for the remaining steps see here: https://felgo.com/custom-code-reload-app/
 # find_package(FelgoHotReload REQUIRED)
 # target_link_libraries(invasion PRIVATE FelgoHotReload)
+endif()
+
+if(BUILD_TESTS)
+enable_testing()
+add_subdirectory(tests)
+endif()
